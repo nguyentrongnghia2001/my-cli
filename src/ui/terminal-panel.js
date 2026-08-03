@@ -394,18 +394,72 @@ function createTerminalPanel({ screen, state, geometry, actions }) {
     term._cell = null;
   }
 
-  // CHƯA ĐƯỢC NỐI VÀO PHÍM NÀO — và đừng nối cho tới khi xử xong việc dưới đây.
-  // releaseTerminal() chỉ gỡ listener chứ không kết thúc pty, nên đóng một tab
-  // lẻ sẽ để shell sống tiếp mãi. Không thể vá bằng pty.kill(): PHASE0 §7 đo
-  // được nó làm conpty_console_list_agent.js crash "AttachConsole failed".
-  // Thoát cả app thì vẫn sạch vì ConPTY tự dọn khi tiến trình chủ chết.
-  function closeTab(id) {
+  function terminatePtyAsync(tab, timeoutMs = 800) {
+    const pty = tab.term && tab.term.pty;
+    if (!pty || tab.exited) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const cleanup = () => {
+        if (!settled) {
+          settled = true;
+          tab.exited = true;
+          resolve();
+        }
+      };
+
+      if (typeof pty.on === "function") {
+        pty.on("exit", cleanup);
+      }
+
+      // 1. Gửi tín hiệu thoát êm (Ctrl+C + exit)
+      try {
+        if (typeof pty.write === "function") {
+          pty.write("\x03exit\r");
+        }
+      } catch (e) {
+        /* NO-OP */
+      }
+
+      // 2. Over-time fallback: process.kill(pid) bằng pid thật thay vì pty.kill()
+      setTimeout(() => {
+        if (settled) return;
+        try {
+          if (pty.pid) {
+            process.kill(pty.pid);
+          }
+        } catch (e) {
+          /* NO-OP */
+        }
+      }, timeoutMs);
+
+      // 3. Final force fallback (Windows taskkill)
+      setTimeout(() => {
+        if (settled) return;
+        if (process.platform === "win32" && pty.pid) {
+          try {
+            require("child_process").exec(`taskkill /T /F /PID ${pty.pid}`, () => cleanup());
+            return;
+          } catch (e) {
+            /* NO-OP */
+          }
+        }
+        cleanup();
+      }, timeoutMs + 800);
+    });
+  }
+
+  // Đóng một tab lẻ: kết thúc pty tiến trình con trước khi giải phóng UI element
+  async function closeTab(id) {
     const index = tabs.findIndex((tab) => tab.id === id);
     if (index === -1) {
       return;
     }
 
     const [tab] = tabs.splice(index, 1);
+    await terminatePtyAsync(tab);
     releaseTerminal(tab);
 
     const elementIndex = elements.indexOf(tab.term);

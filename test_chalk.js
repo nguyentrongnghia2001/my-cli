@@ -1,0 +1,10 @@
+"use strict";
+const blessed = require("blessed");
+const { createHeadlessScreen } = require("./test/smoke-ui.test.js");
+const { createTabBar } = require("./src/ui/tab-bar.js");
+const screen = createHeadlessScreen();
+const state = { editors: { tabs: [{ id: "e1", filePath: "/root/clean.txt", dirty: false }], activeId: "e1" } };
+const tabBar = createTabBar({ screen, state, geometry: { left: 0, top: 0, width: 100, height: 1 }, actions: {} });
+tabBar.render();
+console.log("CONTENT:", JSON.stringify(tabBar.element.getContent()));
+console.log("CONTENT2:", JSON.stringify(tabBar.element.content));

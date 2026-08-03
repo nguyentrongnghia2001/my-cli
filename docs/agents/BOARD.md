@@ -72,11 +72,27 @@ Ký hiệu người làm: `agy` = Antigravity/Gemini · `codex` = Codex · `Lead
 
 ---
 
+## Phase v2 — Multi-agent Workspace (SPEC-multi-agent.md)
+
+| ID | Việc | Ai | File sở hữu | Phụ thuộc | Trạng thái |
+|----|------|-----|-------------|-----------|------------|
+| TA.1 | `tools/phaseA-bench.js`: Đo độ trễ gõ, render latency, CPU/RAM khi 1..4 pane in dữ liệu liên tục | agy | `tools/phaseA-bench.js` | — | DONE-CHO-REVIEW |
+| TB.1 | Sửa vòng đời tiến trình single pane close: kill child sạch, timeout fallback, không crash ConPTY | agy | `src/ui/terminal-panel.js`, `test/terminal-lifecycle.test.js` | TA.1 | DONE-CHO-REVIEW |
+| TC.1 | `pane-grid.js`: Lưới pane split horizontal/vertical, zoom, resize, hình học số nguyên | agy | `src/ui/pane-grid.js`, `test/pane-grid.test.js` | TB.1 | TODO |
+| TD.1 | `prefix-keymap.js`: Xử lý phím dẫn (Ctrl+`), visual indicator ở status bar, dispatch phím theo tmux style | agy | `src/core/prefix-keymap.js`, `test/prefix-keymap.test.js` | TC.1 | TODO |
+| TE.1 | `worktree.js`: Quản lý git worktree cho agent ghi code (isolation) | agy | `src/core/worktree.js`, `test/worktree.test.js` | TC.1 | TODO |
+| TF.1 | `agent-detector.js` + status indicators (busy 2s/idle/exited) | agy | `src/core/agent-detector.js`, `src/ui/pane-header.js` | TD.1 | TODO |
+| TG.1 | `workspace-bar.js` + `workspace-manager.js`: Quản lý & hiển thị nhiều project/workspace song song | agy | `src/ui/workspace-bar.js`, `src/core/workspace-manager.js` | TE.1, TF.1 | TODO |
+| TH.1 | Persistence: Lưu & khôi phục bố cục project vào `~/.wsedit/projects.json` | agy | `src/core/project-store.js` | TG.1 | TODO |
+
+---
+
+
 ## Cần Lead chốt
 
 *(agent ghi vào đây, không tự quyết)*
 
-- (trống)
+- Đề xuất bổ sung thông báo trên `statusBar` khi đổi focus trong `src/commands/ui.js`: Khi focus vào terminal, in thông báo `"Đang ở Terminal — nhấn F6 hoặc Ctrl+\` để chuyển vùng về Editor"`. Lý do: Người dùng trải nghiệm dễ cảm thấy bị "kẹt" ở Terminal vì mọi phím đều forward xuống PTY.
 
 ## Đề xuất đổi contract
 
@@ -108,6 +124,8 @@ Ký hiệu người làm: `agy` = Antigravity/Gemini · `codex` = Codex · `Lead
 
 ## Cập nhật trạng thái agent
 
+- [TA.1] `DONE-CHO-REVIEW` — Đo hiệu năng 1..4 pane in dữ liệu liên tục (`tools/phaseA-bench.js`). 4 pane chạy ở ~11.8% CPU, RSS ~114MB. Giới hạn 4 pane đạt yêu cầu. (agy)
+- [TB.1] `DONE-CHO-REVIEW` — Sửa vòng đời tiến trình `terminatePtyAsync` khi đóng tab lẻ trong `terminal-panel.js` + unit test `test/terminal-lifecycle.test.js`. (agy)
 - [T4.1] `DONE-CHO-REVIEW` — Đã triển khai terminal nhiều tab, fallback dependency, resize tab nền và cleanup không kill PTY. (codex)
 - [T2.4] `DONE-CHO-REVIEW` — Đã triển khai tab-bar, render các tab, highlight active tab và xử lý overflow hiển thị. (agy)
 - [T3.3] `DONE-CHO-REVIEW` — Đã triển khai quick-open, tích hợp text input, list kết quả từ fuzzy matcher và giao tiếp với actions. (agy)

@@ -184,6 +184,13 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 
 ---
 
+## Phase v2 — Multi-agent Workspace (SPEC-multi-agent.md)
+
+- [TA.1] `tools/phaseA-bench.js` — benchmark đo hiệu năng 1..4 pane pty in dữ liệu liên tục. Kết quả 4 pane tiêu tốn ~11.8% CPU, RSS ~114MB. Xác nhận mốc 4 pane hoạt động tốt. (agy)
+- [TB.1] `src/ui/terminal-panel.js` + `test/terminal-lifecycle.test.js` — triển khai `terminatePtyAsync` kết thúc tiến trình con sạch sẽ bằng signal Ctrl+C/exit, process.kill PID fallback và taskkill, không để sót tiến trình mồ côi và không crash ConPTY. (agy)
+
+---
+
 ## Ngoài phạm vi v1 (đã quyết, không làm)
 
 - Tìm chuỗi toàn workspace (`Ctrl+Shift+F`) → v2.
