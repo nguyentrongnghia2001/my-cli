@@ -43,6 +43,13 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 - [T1.5] `src/ui/status-bar.js` — widget thanh trạng thái hiển thị file path, cursor Ln/Col, EOL, encoding, ngôn ngữ và thông báo tạm. (agy)
 - [T1.6] `src/ui/explorer.js` — duyệt cây thư mục, lazy load, chọn file. (agy)
 - [T1.7] `test/smoke-ui.test.js` — headless harness cho blessed screen. (agy)
+- [T1.8] `src/commands/ui.js` — entrypoint `wsedit ui`: dựng screen, mount widget, dispatcher, resize,
+  đường thoát `screen.destroy()` + `process.exit(0)`, bọc `uncaughtException` để không hỏng terminal. (Lead)
+- [T1.8] `tools/ui-smoke.js` — chạy `wsedit ui` trong pty thật rồi bấm phím vào nó. Đây là thứ
+  `node --test` không làm được: test headless chỉ chứng minh lệnh **từ chối** chạy khi thiếu TTY. (Lead)
+- [T1.8] Sửa: chỉ đổi `state.focus` là chưa đủ — blessed chỉ gửi keypress tới element đang focus,
+  nên explorer không nhận được phím nào. Thêm `applyFocus()`. (Lead)
+- [T1.6] Sửa `explorer.js`: bỏ file IO khỏi widget, `render()` không còn mutate state. (Lead)
 
 **Đã biết chưa xong**
 
@@ -55,6 +62,12 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 - [T2.1] `src/core/text-buffer.js` — quản lý buffer theo mảng dòng, mutate tại chỗ, giữ nguyên EOL gốc. (agy)
 - [T2.2] `src/core/workspace-state.js` — quản lý state và event theo SPEC. (agy)
 - [T2.5] `src/ui/prompt.js` — overlay nhập liệu ask và confirm. (agy)
+- [T2.6] Nối vào `ui.js`: mở file kèm policy >2MB read-only + từ chối binary, sửa/lưu giữ nguyên EOL,
+  `Ctrl+W` đóng tab dirty có hỏi, `Ctrl+Q` thoát có hỏi. (Lead)
+- [T2.6] Sửa bug nặng: cùng một phím Enter bị xử lý hai lần — explorer mở file rồi đổi focus, sau đó
+  handler editor chèn thêm dòng trống vào chính file vừa mở, làm nó dirty ngay lúc mở. Hoãn `setFocus`
+  sang tick sau. (Lead)
+- [T2.4] `src/ui/tab-bar.js` — render tab bar kèm bullet dirty, nút close và hỗ trợ overflow. (agy)
 
 **Đã biết chưa xong**
 
@@ -66,6 +79,10 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 
 - [T3.1] `src/core/fuzzy.js` — thuật toán rank với điểm thưởng đoạn nối và segment. (agy)
 - [T3.2] `src/core/file-index.js` — index bất đồng bộ với cờ truncated. (agy)
+- [T3.4] Nối `Ctrl+P` + cảnh báo khi index bị cắt vào `ui.js`. (Lead)
+- [T3.3] Sửa `quick-open.js`: box gốc thiếu `parent: screen` nên `input.focus()` đọc toạ độ của
+  parent null → TypeError, **sập cả app** ngay khi bấm Ctrl+P. Chỉ lộ ra khi chạy trong pty thật. (Lead)
+- [T3.3] `src/ui/quick-open.js` — overlay input và list kết quả filter bằng module fuzzy. (agy)
 
 **Đã biết chưa xong**
 
@@ -76,6 +93,8 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 ## Phase 4 — Terminal panel
 
 *(trống — chưa bắt đầu)*
+
+- [T4.1] `src/ui/terminal-panel.js` — terminal nhiều tab với PTY thật, scrollback 5.000 dòng, fallback dependency và cleanup theo PHASE0. (codex)
 
 **Đã biết chưa xong**
 

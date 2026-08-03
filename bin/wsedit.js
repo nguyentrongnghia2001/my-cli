@@ -6,6 +6,7 @@ const { Command } = require("commander");
 const { viewFile } = require("../src/commands/view");
 const { listFiles } = require("../src/commands/ls");
 const { editFile } = require("../src/commands/edit");
+const { runUi } = require("../src/commands/ui");
 
 const program = new Command();
 program
@@ -27,6 +28,11 @@ program
   .command("edit <file>")
   .description("Mở editor mini trong terminal để sửa file (Ctrl+S lưu, Ctrl+Q thoát)")
   .action(editFile);
+
+program
+  .command("ui [dir]")
+  .description("Mở workspace UI: cây thư mục + tab + editor + terminal")
+  .action(runUi);
 
 program.parse(process.argv);
 
