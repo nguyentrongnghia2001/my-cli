@@ -84,5 +84,24 @@ Bốn mục này **chỉ người dùng chạy trong Windows Terminal thật m�
 - [ ] **`Ctrl+Shift+<key>` có phân biệt được không.** Nếu không → đổi phím tab mới sang `Ctrl+T`,
       run sang `Ctrl+R` (SPEC §6 đã ghi dự phòng)
 
-Script spike nằm ngoài repo, ở scratchpad: `test-pty.js`, `test-resize2.js`, `test-render.js`,
-`test-tabs.js`, `test-exit.js`, `test-orphan.js`.
+Chạy hai lệnh này trong Windows Terminal thật để tick:
+
+```bash
+node tools/phase0-check.js keys   # Ctrl+Shift+<key> có phân biệt được?
+node tools/phase0-check.js ui     # gõ có nháy? màu đúng? agent chạy được trong pane?
+```
+
+## 9. Đã kiểm lại trên version đang cài trong repo
+
+Số đo ở §3 và §7 ban đầu lấy trên `node-pty@1.1.0`. Repo hiện cài
+`node-pty@1.2.0-beta.14` (bản `blessed-xterm@1.6.0` yêu cầu). Đã chạy lại và **5/5 pass**
+trên đúng version này:
+
+```
+node tools/phase0-check.js auto
+```
+
+Kiểm: Ctrl+C kill được child (1862ms) · output pty vẽ được vào pane blessed · pane nhận
+geometry số nguyên · `process.exit(0)` thoát ngay (1586ms) · không để lại tiến trình mồ côi.
+
+Lệnh này là **gate bắt buộc** cho mọi task liên quan pty — phải còn 5/5 trước khi báo xong.

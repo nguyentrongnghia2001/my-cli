@@ -71,7 +71,11 @@ detectEol(content: string) => "LF" | "CRLF"    // đếm \r\n vs \n, nhiều hơ
 createBuffer(content: string) => {
   lines: string[],                 // luôn tách theo \n, đã bỏ \r cuối dòng
   eol: "LF" | "CRLF",
-  cursor: { line: number, col: number },   // 0-based
+  cursor: {
+    line: number, col: number,   // 0-based
+    desiredCol: number           // cột người dùng "muốn"; up/down bám theo giá trị này
+                                 // để đi qua dòng ngắn rồi xuống dòng dài vẫn về đúng cột
+  },
   scroll: { top: number, left: number },
   dirty: boolean
 }

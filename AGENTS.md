@@ -64,8 +64,10 @@ node bin/wsedit.js --help
 node bin/wsedit.js ls
 node bin/wsedit.js view package.json
 
-# 2. Unit test (nếu repo đã có test/)
-node --test test/
+# 2. Unit test — LƯU Ý: dùng `node --test` KHÔNG tham số.
+#    `node --test test/` bị lỗi trên Windows: Node coi `test` là entrypoint module
+#    và ném MODULE_NOT_FOUND. Bare `node --test` tự tìm mọi file test.
+node --test
 
 # 3. Ranh giới core: lệnh sau phải KHÔNG in ra gì
 grep -rn "require(\"blessed\")\|require(\"node-pty\")" src/core/
@@ -76,6 +78,8 @@ node --check <file>
 
 Nếu task của bạn thuộc `src/ui/**`, thêm: `node --test test/smoke-ui.test.js` (dựng screen bằng stream giả,
 không cần TTY — xem `docs/agents/CONTRACTS.md`).
+
+Nếu task liên quan terminal/pty: `node tools/phase0-check.js auto` phải còn 5/5 pass.
 
 ## Điều tuyệt đối không làm
 
