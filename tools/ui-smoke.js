@@ -79,6 +79,10 @@ at(3500, () => {
     // Cùng một phím Enter từng bị xử lý 2 lần (explorer mở file, rồi handler
     // editor chèn thêm dòng trống) làm file vừa mở đã dirty. Chặn tái diễn.
     check("file vừa mở KHÔNG bị đánh dấu dirty", !/●/.test(afterOpen));
+    // Tab bar từng thiếu parent VÀ gán hình học sai chỗ (element.left thay vì
+    // element.position.left) nên không bao giờ hiện — khiến chính check dirty
+    // ở trên luôn xanh một cách vô nghĩa. Nhận diện bằng nút đóng "×".
+    check("tab bar được vẽ ra", /×/.test(afterOpen));
 
     // 3. Quick open
     out = "";
@@ -89,18 +93,29 @@ at(3500, () => {
       const afterQuickOpen = plain();
       check("Ctrl+P lọc ra package.json", /package\.json/.test(afterQuickOpen));
       check("quick open không crash", !crashed(afterQuickOpen));
+      // KHÔNG xoá `out` ở đây: blessed dùng smartCSR nên chỉ phát lại vùng có
+      // thay đổi. Xoá buffer thì tab bar (không đổi) sẽ vắng mặt trong phần
+      // còn lại và check bên dưới báo sai.
       term.write("\x1b");
+
+      at(900, () => {
+        const afterEscape = plain();
+        // Overlay từng không đặt state.focus = "overlay", nên chữ gõ vào ô
+        // quick open chảy tiếp xuống editor và sửa luôn file đang mở. Chuỗi
+        // "pack" ở trên là phép thử: nếu rò thì file thành dirty.
+        check("gõ trong quick open KHÔNG rò xuống editor", !/●/.test(afterEscape));
+      });
 
       // 4. Terminal pane (T4.2). Dùng Ctrl+T (0x14) chứ không dùng Ctrl+` —
       //    chính Ctrl+` là thứ PHASE0 §8 chưa xác nhận là gửi được.
-      at(700, () => { out = ""; term.write("\x14"); });
-      at(3200, () => {
+      at(1400, () => { out = ""; term.write("\x14"); });
+      at(3900, () => {
         check("Ctrl+T mở được terminal pane, không crash", !crashed(plain()));
         out = "";
         term.write("echo WSEDIT_TERM_OK\r");
       });
 
-      at(6000, () => {
+      at(6700, () => {
         const shellOut = plain();
         check("gõ được vào pane và shell chạy lệnh", /WSEDIT_TERM_OK/.test(shellOut));
 
@@ -109,15 +124,15 @@ at(3500, () => {
         term.write(`node -e "setTimeout(()=>{},600000)" ${ORPHAN_MARKER}\r`);
       });
 
-      at(6800, () => {
+      at(7500, () => {
         // F6 để rời terminal; khi còn ở trong pane thì Ctrl+Q phải xuống pty
         // chứ không được thoát app.
         term.write("\x1b[17~");
       });
 
       // 5. Resize khi terminal đang mở
-      at(7000, () => { out = ""; term.resize(70, 20); });
-      at(8500, () => {
+      at(7700, () => { out = ""; term.resize(70, 20); });
+      at(9200, () => {
         check("resize khi terminal đang mở không vỡ", !crashed(plain()) && exitCode === null);
 
         // 6. Thoát sạch, không để lại tiến trình mồ côi

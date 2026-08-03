@@ -120,8 +120,32 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
   Testing (gồm bẫy `npm test` và bẫy `node --test test/`), 3 ranh giới kiến trúc, và các
   luật cứng của `ui`. (Lead)
 
+- [T5.2] Review chéo toàn bộ v1: 3 mục Cao, 9 Trung, 3 Thấp. (codex)
+- [T5.2] Sửa 2/3 mục Cao sau khi Lead tự xác minh lại trên code:
+  - **Overlay không chặn phím.** Handler cấp screen có `if (state.focus === "overlay") return`
+    nhưng **không chỗ nào đặt giá trị đó**. Hậu quả: gõ vào ô nhập của prompt/quick open thì
+    phím chảy tiếp xuống editor và sửa luôn file đang mở. Thêm `enterOverlay`/`leaveOverlay`/
+    `withOverlay` trong `ui.js`; `quick-open.close()` gọi `actions.closeOverlay()` thay cho
+    `actions.cycleFocus()` (cái cũ đẩy focus sang vùng kế tiếp chứ không trả về chỗ cũ).
+  - **Tab bar chưa bao giờ được vẽ.** Hai lỗi chồng nhau trong `tab-bar.js`: thiếu
+    `parent: screen`, và `setGeometry` gán `element.left` thay vì `element.position.left`
+    nên hình học không áp vào (các widget khác đều dùng `element.position`).
+- [T5.2] `tools/ui-smoke.js`: thêm 2 check chặn tái diễn → 14/14. Bộ test cũ **pass 12/12
+  ngay cả khi cả hai bug trên còn nguyên** — riêng check "file vừa mở không dirty" là vô
+  nghĩa suốt thời gian đó, vì dấu `●` nằm trên tab bar vốn không hiện. (Lead)
+- [T5.2] Bác bỏ nghi vấn cũ về `editor-view.js` `_updateCursor`: blessed **có** gọi hook này
+  trên element con đang focus (`screen.js:751`). Nghi vấn ban đầu của Lead là sai. (codex)
+
 **Đã biết chưa xong**
 
+- Mục Cao thứ ba của codex — `shutdown()` không gọi `terminalPanel.destroy()` — **chưa sửa,
+  cố ý**: smoke pty đo được thoát mã 0 và không sót tiến trình con, PHASE0 §7 cấm đụng đường
+  thoát. Cần ca tái hiện được rồi mới đổi.
+- 9 mục Trung + 3 mục Thấp của codex chưa xử lý: IO trực tiếp trong `explorer.js` và
+  `terminal-panel.js`, `terminal-panel` tự `emitChange`, terminal không tự ẩn khi < 16 dòng,
+  status-bar không render lại khi hết TTL, race khi spawn lỗi, `closeTab()` của terminal để
+  process treo, off-by-one ở cờ `truncated` trong `buildIndex()`. Đều chưa được Lead xác minh
+  độc lập — **không coi là đã xác nhận**.
 - `npm test` vẫn là placeholder của npm-init và **thoát mã 1**. Gate thật là `node --test`.
   Chưa sửa `package.json` vì CLAUDE.md cấm thêm tooling khi chưa được yêu cầu — cần User quyết.
 - Explorer: SPEC §6 giao `Ctrl+R` cho việc nạp lại thư mục nhưng chưa thấy chỗ nối trong

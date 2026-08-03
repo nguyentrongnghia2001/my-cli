@@ -135,6 +135,35 @@ function runUi(dir = ".") {
     if (target && screen.focused !== target && target.focus) target.focus();
   }
 
+  // ----- overlay -----
+  // Handler cấp screen bỏ qua phím khi state.focus === "overlay", nhưng trước
+  // đây KHÔNG chỗ nào đặt giá trị đó. Hậu quả: gõ vào ô nhập của prompt hoặc
+  // quick open thì phím chảy tiếp xuống editor và sửa luôn file đang mở —
+  // cùng loại lỗi với vụ Enter bị xử lý hai lần ở T2.6.
+  let focusBeforeOverlay = null;
+
+  function enterOverlay() {
+    if (state.focus !== "overlay") focusBeforeOverlay = state.focus;
+    setFocus(state, "overlay");
+  }
+
+  function leaveOverlay() {
+    if (state.focus !== "overlay") return;
+    setFocus(state, focusBeforeOverlay || "editor");
+    focusBeforeOverlay = null;
+    scheduleRender();
+  }
+
+  // Overlay phải được gỡ dù promise reject, nếu không cả UI kẹt ở trạng thái
+  // không nhận phím nào.
+  function withOverlay(run) {
+    enterOverlay();
+    return run().then(
+      (value) => { leaveOverlay(); return value; },
+      (error) => { leaveOverlay(); throw error; }
+    );
+  }
+
   function renderAll() {
     applyFocus();
     for (const widget of widgets()) widget.render();
@@ -256,7 +285,7 @@ function runUi(dir = ".") {
       if (!tab) return;
       if (!tab.dirty) return closeTab(state, tab.id);
 
-      prompt.confirm(`${path.basename(tab.filePath)} chưa lưu. Đóng và bỏ thay đổi?`)
+      withOverlay(() => prompt.confirm(`${path.basename(tab.filePath)} chưa lưu. Đóng và bỏ thay đổi?`))
         .then((answer) => {
           if (answer === "yes") closeTab(state, tab.id);
           scheduleRender();
@@ -284,7 +313,7 @@ function runUi(dir = ".") {
     },
 
     runCommand() {
-      prompt.ask("Chạy lệnh:")
+      withOverlay(() => prompt.ask("Chạy lệnh:"))
         .then((command) => {
           if (!command) return scheduleRender();
           if (!showTerminal()) return;
@@ -321,14 +350,20 @@ function runUi(dir = ".") {
         applyLayout();
       }
       if (fileIndex.truncated) notify("Index bị cắt ở 20.000 tệp — có thể thiếu kết quả");
+      enterOverlay();
       quickOpen.open();
+    },
+
+    // quick-open tự gọi khi nó đóng; không có promise để bọc như prompt.
+    closeOverlay() {
+      leaveOverlay();
     },
 
     quit() {
       const dirty = state.editors.tabs.filter((tab) => tab.dirty);
       if (dirty.length === 0) return shutdown();
 
-      prompt.confirm(`Còn ${dirty.length} tệp chưa lưu. Thoát và bỏ thay đổi?`)
+      withOverlay(() => prompt.confirm(`Còn ${dirty.length} tệp chưa lưu. Thoát và bỏ thay đổi?`))
         .then((answer) => {
           if (answer === "yes") shutdown();
           else scheduleRender();

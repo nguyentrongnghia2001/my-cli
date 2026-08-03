@@ -163,9 +163,11 @@ function createQuickOpen({ screen, state, geometry, actions, getCandidates }) {
     isOpen = false;
     element.hide();
     input.clearValue();
-    // Re-render and let caller/keymap know to cycle focus if needed
+    // Trả focus về đúng chỗ trước khi mở overlay. cycleFocus() trước đây đẩy
+    // focus sang vùng kế tiếp chứ không phải vùng cũ.
     try {
-      if (actions.cycleFocus) actions.cycleFocus();
+      if (actions.closeOverlay) actions.closeOverlay();
+      else if (actions.cycleFocus) actions.cycleFocus();
     } catch (e) {
       if (actions.notify) actions.notify(e.message);
     }

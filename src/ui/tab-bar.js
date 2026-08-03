@@ -8,6 +8,9 @@ const chalk = require("chalk");
  */
 function createTabBar({ screen, state, geometry, actions }) {
   const element = blessed.box({
+    // Thiếu parent thì element không nằm trong cây của screen và không bao giờ
+    // được vẽ — tab bar sẽ vô hình dù render() chạy đúng.
+    parent: screen,
     left: geometry.left,
     top: geometry.top,
     width: geometry.width,
@@ -115,10 +118,13 @@ function createTabBar({ screen, state, geometry, actions }) {
 
   function setGeometry(geo) {
     currentGeometry = { ...geo };
-    element.left = geo.left;
-    element.top = geo.top;
-    element.width = geo.width;
-    element.height = geo.height;
+    // Phải ghi vào element.position — gán thẳng element.left/width không áp
+    // được hình học, element giữ nguyên kích thước khởi tạo (rộng 0) nên
+    // không hiện gì cả.
+    element.position.left = geo.left;
+    element.position.top = geo.top;
+    element.position.width = geo.width;
+    element.position.height = geo.height;
   }
 
   function destroy() {

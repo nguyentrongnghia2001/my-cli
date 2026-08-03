@@ -88,9 +88,16 @@ Ký hiệu người làm: `agy` = Antigravity/Gemini · `codex` = Codex · `Lead
 
 *(ghi: file · dòng · hiện tượng. KHÔNG tự sửa)*
 
-- `src/ui/editor-view.js` · dòng ~82 · gán `element._updateCursor = ...`, nhưng blessed chỉ gọi
-  `_updateCursor` trên **Screen**, không gọi trên element con. Nhiều khả năng con trỏ soạn thảo
-  không bao giờ hiện. Chưa sửa — chủ file (codex) xác nhận rồi hãy sửa.
+- ~~`src/ui/editor-view.js` · dòng ~82 · `element._updateCursor` không bao giờ được gọi~~
+  **SAI — đã bác bỏ.** `node_modules/blessed/lib/widgets/screen.js:751` có
+  `if (this.focused && this.focused._updateCursor) this.focused._updateCursor(true)`,
+  tức blessed **có** gọi hook này trên element con đang focus. Nghi vấn ban đầu của Lead
+  là sai; codex kiểm chứng bằng source ở T5.2. Không cần sửa gì.
+
+- `src/commands/ui.js` · dòng ~347 · `shutdown()` không gọi `terminalPanel.destroy()`.
+  codex xếp mức Cao. **Chưa sửa, và cố ý:** smoke pty đo được thoát mã 0 và không sót
+  tiến trình con, còn PHASE0 §7 nói rõ không đụng vào đường thoát. Sửa dựa trên suy luận
+  chưa kiểm chứng là tự tạo regression. Cần một ca tái hiện được rồi mới đổi.
 
 ## Câu hỏi mở còn treo từ SPEC §12
 
