@@ -21,6 +21,22 @@ try {
 
 const REPO = path.join(__dirname, "..");
 const results = [];
+const ORPHAN_MARKER = "WSEDIT_ORPHAN_PROBE";
+
+// Tiến trình chạy trong pane là cháu chắt của process này, không lấy pid trực
+// tiếp được — nên nhận diện bằng dấu trong dòng lệnh.
+function orphanAlive() {
+  const { spawnSync } = require("child_process");
+  if (process.platform !== "win32") {
+    const ps = spawnSync("ps", ["-eo", "args"], { encoding: "utf8" });
+    return (ps.stdout || "").includes(ORPHAN_MARKER);
+  }
+  const query = spawnSync("powershell.exe", [
+    "-NoProfile", "-Command",
+    `(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -like '*${ORPHAN_MARKER}*' } | Measure-Object).Count`,
+  ], { encoding: "utf8" });
+  return parseInt((query.stdout || "0").trim(), 10) > 0;
+}
 
 function check(name, ok) {
   results.push(ok);
@@ -75,15 +91,40 @@ at(3500, () => {
       check("quick open không crash", !crashed(afterQuickOpen));
       term.write("\x1b");
 
-      // 4. Resize
-      at(600, () => { out = ""; term.resize(70, 20); });
-      at(1800, () => {
-        check("resize 100x30 -> 70x20 không vỡ", !crashed(plain()) && exitCode === null);
+      // 4. Terminal pane (T4.2). Dùng Ctrl+T (0x14) chứ không dùng Ctrl+` —
+      //    chính Ctrl+` là thứ PHASE0 §8 chưa xác nhận là gửi được.
+      at(700, () => { out = ""; term.write("\x14"); });
+      at(3200, () => {
+        check("Ctrl+T mở được terminal pane, không crash", !crashed(plain()));
+        out = "";
+        term.write("echo WSEDIT_TERM_OK\r");
+      });
 
-        // 5. Thoát sạch
+      at(6000, () => {
+        const shellOut = plain();
+        check("gõ được vào pane và shell chạy lệnh", /WSEDIT_TERM_OK/.test(shellOut));
+
+        // Tiêu chí Done Phase 4: thoát không được để sót tiến trình. Chạy một
+        // tiến trình sống lâu có dấu nhận dạng để kiểm chính xác sau khi thoát.
+        term.write(`node -e "setTimeout(()=>{},600000)" ${ORPHAN_MARKER}\r`);
+      });
+
+      at(6800, () => {
+        // F6 để rời terminal; khi còn ở trong pane thì Ctrl+Q phải xuống pty
+        // chứ không được thoát app.
+        term.write("\x1b[17~");
+      });
+
+      // 5. Resize khi terminal đang mở
+      at(7000, () => { out = ""; term.resize(70, 20); });
+      at(8500, () => {
+        check("resize khi terminal đang mở không vỡ", !crashed(plain()) && exitCode === null);
+
+        // 6. Thoát sạch, không để lại tiến trình mồ côi
         term.write("\x11");
-        at(2000, () => {
+        at(2500, () => {
           check("Ctrl+Q thoát sạch (exit 0)", exitCode === 0);
+          check("thoát không để sót tiến trình con", !orphanAlive());
           if (results.some((ok) => !ok)) {
             console.log("\n--- màn hình (700 ký tự cuối) ---");
             console.log(JSON.stringify(plain().slice(-700)));

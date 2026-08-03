@@ -96,7 +96,7 @@ function runUi(dir = ".") {
     parent: screen,
     left: 0, top: 0, width: 0, height: 1,
     style: { fg: "white", bg: "blue" },
-    content: " Ctrl+P tệp   Ctrl+B sidebar   Ctrl+` terminal   Ctrl+S lưu   F6 đổi vùng   Ctrl+Q thoát",
+    content: " Ctrl+P tệp   Ctrl+` terminal   Ctrl+T tab mới   Ctrl+S lưu   F6 đổi vùng   Ctrl+Q thoát",
   });
 
   // Terminal tạo trễ: khởi tạo panel là spawn shell ngay, không nên làm khi
@@ -175,6 +175,27 @@ function runUi(dir = ".") {
     setTerminalVisible(state.terminalVisible);
   }
 
+  // Panel tạo trễ vì khởi tạo là spawn shell ngay.
+  function ensureTerminalPanel() {
+    if (terminalPanel) return true;
+    const createTerminalPanel = optional("../ui/terminal-panel", "createTerminalPanel");
+    if (!createTerminalPanel) {
+      notify("Chưa có terminal panel (T4.1)");
+      return false;
+    }
+    terminalPanel = createTerminalPanel({ screen, state, geometry: EMPTY_GEOMETRY, actions });
+    return true;
+  }
+
+  function showTerminal() {
+    if (!ensureTerminalPanel()) return false;
+    if (!state.terminalVisible) toggleTerminal(state);
+    applyLayout();
+    setFocus(state, "terminal");
+    if (terminalPanel.focusActive) terminalPanel.focusActive();
+    return true;
+  }
+
   function setTerminalVisible(visible) {
     if (!terminalPanel) return;
     for (const element of [].concat(terminalPanel.element)) {
@@ -249,23 +270,38 @@ function runUi(dir = ".") {
     },
 
     toggleTerminal() {
+      if (!state.terminalVisible) return void showTerminal();
+
       toggleTerminal(state);
-      if (state.terminalVisible && !terminalPanel) {
-        const createTerminalPanel = optional("../ui/terminal-panel", "createTerminalPanel");
-        if (!createTerminalPanel) {
-          notify("Chưa có terminal panel (T4.1)");
-          toggleTerminal(state);
-          return;
-        }
-        terminalPanel = createTerminalPanel({ screen, state, geometry: EMPTY_GEOMETRY, actions });
-      }
       applyLayout();
-      if (state.terminalVisible) {
-        setFocus(state, "terminal");
-        if (terminalPanel && terminalPanel.focusActive) terminalPanel.focusActive();
-      } else if (state.focus === "terminal") {
-        setFocus(state, "editor");
-      }
+      if (state.focus === "terminal") setFocus(state, "editor");
+    },
+
+    newTerminalTab() {
+      if (!showTerminal()) return;
+      terminalPanel.newTab();
+      scheduleRender();
+    },
+
+    runCommand() {
+      prompt.ask("Chạy lệnh:")
+        .then((command) => {
+          if (!command) return scheduleRender();
+          if (!showTerminal()) return;
+          terminalPanel.newTab({ command });
+          scheduleRender();
+        })
+        .catch((error) => notify(`Không chạy được: ${error.message}`));
+    },
+
+    shiftTerminalTab(step) {
+      if (!terminalPanel || !state.terminalVisible) return;
+      const tabs = state.terminals.tabs;
+      if (tabs.length < 2) return;
+      const current = tabs.findIndex((tab) => tab.id === state.terminals.activeId);
+      const next = tabs[(current + step + tabs.length) % tabs.length];
+      if (next) terminalPanel.setActiveTab(next.id);
+      scheduleRender();
     },
 
     cycleFocus() {
@@ -346,9 +382,39 @@ function runUi(dir = ".") {
     return false;
   }
 
+  // SPEC §6 xếp các phím quản lý terminal vào nhóm "khi focus panel", nhưng luật
+  // cứng chỉ cho đúng 2 phím không xuống pty — thêm phím dành riêng là cướp phím
+  // của agent đang chạy trong pane. Nên chúng chỉ ăn khi focus KHÔNG ở terminal.
+  // Dùng Ctrl+T/Ctrl+R thay cho Ctrl+Shift+… vì PHASE0 §8 chưa xác nhận terminal
+  // có phân biệt được Ctrl+Shift+<key>.
+  function handleTerminalKey(key) {
+    const name = key && (key.full || key.name);
+
+    if (name === "C-t") {
+      actions.newTerminalTab();
+      return true;
+    }
+    if (name === "M-left") {
+      actions.shiftTerminalTab(-1);
+      return true;
+    }
+    if (name === "M-right") {
+      actions.shiftTerminalTab(1);
+      return true;
+    }
+    // Ctrl+R đã thuộc về explorer (reload thư mục) theo SPEC §6. Chỉ nhận ở
+    // editor, nếu không một phím sẽ chạy hai hành động.
+    if (name === "C-r" && state.focus === "editor") {
+      actions.runCommand();
+      return true;
+    }
+    return false;
+  }
+
   screen.on("keypress", (ch, key) => {
     if (state.focus === "overlay") return;
     if (dispatch(ch, key)) return scheduleRender();
+    if (state.focus !== "terminal" && handleTerminalKey(key)) return scheduleRender();
     if (state.focus === "editor" && handleEditorKey(ch, key)) scheduleRender();
   });
 
