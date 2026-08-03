@@ -37,7 +37,12 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 
 ## Phase 1 — Khung UI
 
-*(trống — chưa bắt đầu)*
+- [T1.2] `src/core/fs-tree.js` — đọc 1 cấp, sort thư mục trước file. (agy)
+- [T1.3] `src/ui/layout.js` — tính toán hình học số nguyên cho 7 vùng. (agy)
+- [T1.4] `src/core/keymap.js` — dispatcher ưu tiên terminal forward. (agy)
+- [T1.5] `src/ui/status-bar.js` — widget thanh trạng thái hiển thị file path, cursor Ln/Col, EOL, encoding, ngôn ngữ và thông báo tạm. (agy)
+- [T1.6] `src/ui/explorer.js` — duyệt cây thư mục, lazy load, chọn file. (agy)
+- [T1.7] `test/smoke-ui.test.js` — headless harness cho blessed screen. (agy)
 
 **Đã biết chưa xong**
 
@@ -47,7 +52,9 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 
 ## Phase 2 — Editor sửa được + tab
 
-*(trống — chưa bắt đầu)*
+- [T2.1] `src/core/text-buffer.js` — quản lý buffer theo mảng dòng, mutate tại chỗ, giữ nguyên EOL gốc. (agy)
+- [T2.2] `src/core/workspace-state.js` — quản lý state và event theo SPEC. (agy)
+- [T2.5] `src/ui/prompt.js` — overlay nhập liệu ask và confirm. (agy)
 
 **Đã biết chưa xong**
 
@@ -57,7 +64,8 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 
 ## Phase 3 — Quick open
 
-*(trống — chưa bắt đầu)*
+- [T3.1] `src/core/fuzzy.js` — thuật toán rank với điểm thưởng đoạn nối và segment. (agy)
+- [T3.2] `src/core/file-index.js` — index bất đồng bộ với cờ truncated. (agy)
 
 **Đã biết chưa xong**
 

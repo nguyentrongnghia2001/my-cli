@@ -161,7 +161,7 @@ Hàm này **pure** — không require blessed, test được.
 Mọi widget export **đúng một** factory cùng dạng:
 
 ```js
-create<Ten>({ screen, state, geometry }) => {
+create<Ten>({ screen, state, geometry, actions }) => {
   element,                     // blessed element (hoặc mảng element nếu widget có nhiều box)
   render() => void,            // vẽ lại từ state; KHÔNG tự gọi screen.render()
   setGeometry(geometry) => void,   // áp hình học mới khi resize
@@ -169,8 +169,21 @@ create<Ten>({ screen, state, geometry }) => {
 }
 ```
 - Widget **chỉ đọc** state, không mutate trực tiếp — gọi mutator của `workspace-state.js`.
+- `render()` **không được** gọi mutator hay `emitChange()`. Mutate trong lúc render sẽ phát
+  change → kéo render lại → vòng lặp. Cần nạp dữ liệu thì làm ở lúc khởi tạo hoặc trong
+  handler phím, **không** trong `render()`.
 - `render()` không gọi `screen.render()`; `ui.js` gọi một lần sau khi mọi widget render xong
   (tránh vẽ lại N lần cho 1 thay đổi).
+- **Widget KHÔNG làm file IO và KHÔNG quyết định policy.** Không `fs.readFileSync`, không tự
+  kiểm file > 2MB hay binary. Muốn mở file thì gọi `actions.openFile(path)`. Lý do: policy đó
+  thuộc `ui.js` (T2.6); để ở hai nơi thì sớm muộn sẽ lệch nhau.
+- **Widget không được `throw` trong event handler.** blessed không bắt, sẽ thành
+  `uncaughtException` và làm hỏng terminal của người dùng. Báo lỗi qua
+  `actions.notify(message)` để status bar hiện.
+
+`actions` là cùng object mà `ui.js` truyền cho `keymap.js`, tối thiểu có: `openFile(path)`,
+`notify(message)`, `save()`, `closeTab()`, `quickOpen()`, `toggleSidebar()`, `toggleTerminal()`,
+`cycleFocus()`, `quit()`.
 
 Danh sách: `explorer.js`, `tab-bar.js`, `editor-view.js`, `status-bar.js`, `quick-open.js`,
 `prompt.js`, `terminal-panel.js`.

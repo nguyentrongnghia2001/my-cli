@@ -14,12 +14,12 @@ Ký hiệu người làm: `agy` = Antigravity/Gemini · `codex` = Codex · `Lead
 | ID | Việc | Ai | File sở hữu | Phụ thuộc | Trạng thái |
 |----|------|-----|-------------|-----------|------------|
 | T1.1 | Tách `bin/wsedit.js` → `src/commands/{view,ls,edit}.js` + `src/core/language.js`. Giữ y nguyên hành vi | Lead | `bin/wsedit.js`, `src/commands/view.js`, `src/commands/ls.js`, `src/commands/edit.js`, `src/core/language.js` | — | TODO |
-| T1.2 | `fs-tree.js`: đọc 1 cấp, sort, IGNORED | agy | `src/core/fs-tree.js` | — | TODO |
-| T1.3 | `layout.js`: hình học số nguyên 7 vùng + test | agy | `src/ui/layout.js`, `test/layout.test.js` | — | TODO |
-| T1.4 | `keymap.js`: dispatcher theo focus | agy | `src/core/keymap.js` | — | TODO |
-| T1.5 | `status-bar.js` | agy | `src/ui/status-bar.js` | T1.3 | TODO |
-| T1.6 | `explorer.js`: duyệt cây, expand/collapse, chọn file (chưa cần mở) | agy | `src/ui/explorer.js` | T1.2, T1.3 | TODO |
-| T1.7 | `test/smoke-ui.test.js`: harness dựng blessed screen bằng stream giả (không cần TTY) | agy | `test/smoke-ui.test.js` | — | TODO |
+| T1.2 | `fs-tree.js`: đọc 1 cấp, sort, IGNORED | agy | `src/core/fs-tree.js` | — | DONE-CHO-REVIEW |
+| T1.3 | `layout.js`: hình học số nguyên 7 vùng + test | agy | `src/ui/layout.js`, `test/layout.test.js` | — | DONE-CHO-REVIEW |
+| T1.4 | `keymap.js`: dispatcher theo focus | agy | `src/core/keymap.js` | — | DONE-CHO-REVIEW |
+| T1.5 | `status-bar.js` | agy | `src/ui/status-bar.js` | T1.3 | DONE-CHO-REVIEW |
+| T1.6 | `explorer.js`: duyệt cây, expand/collapse, chọn file (chưa cần mở) | agy | `src/ui/explorer.js` | T1.2, T1.3 | DONE-CHO-REVIEW |
+| T1.7 | `test/smoke-ui.test.js`: harness dựng blessed screen bằng stream giả (không cần TTY) | agy | `test/smoke-ui.test.js` | — | DONE-CHO-REVIEW |
 | T1.8 | `src/commands/ui.js`: dựng screen, mount widget, gắn dispatcher, xử lý resize | Lead | `src/commands/ui.js` | T1.3–T1.7 | TODO |
 
 **Done Phase 1 khi:** 3 lệnh cũ chạy y như trước · `wsedit ui` duyệt cây + xem được file · đổi kích thước không vỡ layout.
@@ -28,11 +28,11 @@ Ký hiệu người làm: `agy` = Antigravity/Gemini · `codex` = Codex · `Lead
 
 | ID | Việc | Ai | File sở hữu | Phụ thuộc | Trạng thái |
 |----|------|-----|-------------|-----------|------------|
-| T2.1 | `text-buffer.js` + test đầy đủ (insert/delete/newline/biên/EOL) | agy | `src/core/text-buffer.js`, `test/text-buffer.test.js` | — | TODO |
-| T2.2 | `workspace-state.js`: state + onChange + mutators | agy | `src/core/workspace-state.js` | — | TODO |
-| T2.3 | `editor-view.js`: render viewport + gutter + cursor + cuộn ngang | codex | `src/ui/editor-view.js` | T2.1, T1.3 | TODO |
+| T2.1 | `text-buffer.js` + test đầy đủ (insert/delete/newline/biên/EOL) | agy | `src/core/text-buffer.js`, `test/text-buffer.test.js` | — | DONE-CHO-REVIEW |
+| T2.2 | `workspace-state.js`: state + onChange + mutators | agy | `src/core/workspace-state.js` | — | DONE-CHO-REVIEW |
+| T2.3 | `editor-view.js`: render viewport + gutter + cursor + cuộn ngang | codex | `src/ui/editor-view.js` | T2.1, T1.3 | DONE-CHO-REVIEW |
 | T2.4 | `tab-bar.js`: tab, dấu `●` dirty, nút `×` | agy | `src/ui/tab-bar.js` | T2.2 | TODO |
-| T2.5 | `prompt.js`: `ask()` + `confirm()` | agy | `src/ui/prompt.js` | — | TODO |
+| T2.5 | `prompt.js`: `ask()` + `confirm()` | agy | `src/ui/prompt.js` | — | DONE-CHO-REVIEW |
 | T2.6 | Nối lưu/đóng tab/dirty/guard file lớn + binary vào `ui.js` | Lead | `src/commands/ui.js` | T2.1–T2.5 | TODO |
 
 **Done Phase 2 khi:** mở 3 file, sửa, lưu — **EOL gốc không đổi** · đóng tab dirty có hỏi · file > 2MB read-only · file binary bị từ chối.
@@ -41,8 +41,8 @@ Ký hiệu người làm: `agy` = Antigravity/Gemini · `codex` = Codex · `Lead
 
 | ID | Việc | Ai | File sở hữu | Phụ thuộc | Trạng thái |
 |----|------|-----|-------------|-----------|------------|
-| T3.1 | `fuzzy.js` + test (score, thứ tự, basename bonus) | agy | `src/core/fuzzy.js`, `test/fuzzy.test.js` | — | TODO |
-| T3.2 | `file-index.js`: build async, limit 20k, cờ `truncated` | agy | `src/core/file-index.js` | T1.2 | TODO |
+| T3.1 | `fuzzy.js` + test (score, thứ tự, basename bonus) | agy | `src/core/fuzzy.js`, `test/fuzzy.test.js` | — | DONE-CHO-REVIEW |
+| T3.2 | `file-index.js`: build async, limit 20k, cờ `truncated` | agy | `src/core/file-index.js` | T1.2 | DONE-CHO-REVIEW |
 | T3.3 | `quick-open.js`: overlay input + 12 kết quả | agy | `src/ui/quick-open.js` | T3.1, T3.2 | TODO |
 | T3.4 | Nối `Ctrl+P` + cảnh báo `truncated` vào `ui.js` | Lead | `src/commands/ui.js` | T3.3 | TODO |
 
@@ -52,7 +52,7 @@ Ký hiệu người làm: `agy` = Antigravity/Gemini · `codex` = Codex · `Lead
 
 | ID | Việc | Ai | File sở hữu | Phụ thuộc | Trạng thái |
 |----|------|-----|-------------|-----------|------------|
-| T4.1 | `terminal-panel.js`: nhiều pty tab, forward phím, `ignoreKeys`, scrollback | codex | `src/ui/terminal-panel.js` | PHASE0, T1.3 | TODO |
+| T4.1 | `terminal-panel.js`: nhiều pty tab, forward phím, `ignoreKeys`, scrollback | codex | `src/ui/terminal-panel.js` | PHASE0, T1.3 | DANG-LAM |
 | T4.2 | Nối toggle/focus/`Ctrl+Shift+R` run prompt + đường thoát vào `ui.js` | Lead | `src/commands/ui.js` | T4.1 | TODO |
 | T4.3 | **Xác nhận PHASE0 §8 trên terminal thật** (gõ, nháy, màu, agent thật, `Ctrl+Shift+<key>`) | **User** | — | T4.2 | TODO |
 
