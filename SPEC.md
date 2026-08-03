@@ -3,6 +3,9 @@
 Trạng thái: draft, chờ chốt các câu hỏi mở ở §12.
 Phạm vi: thêm lệnh `wsedit ui [dir]` — một workspace UI kiểu VS Code chạy hoàn toàn trong terminal.
 
+> Tiếp theo v1: `SPEC-multi-agent.md` — chạy nhiều agent CLI song song trên cùng một repo
+> (split pane, cô lập bằng git worktree, phím dẫn). Cùng nền tảng Node + blessed + node-pty.
+
 ---
 
 ## 1. Mục tiêu
