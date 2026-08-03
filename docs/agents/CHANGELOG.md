@@ -136,8 +136,39 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 - [T5.2] Bác bỏ nghi vấn cũ về `editor-view.js` `_updateCursor`: blessed **có** gọi hook này
   trên element con đang focus (`screen.js:751`). Nghi vấn ban đầu của Lead là sai. (codex)
 
+- [T5.2] Xử 9 mục Trung của codex. **Hai mục bị bác bỏ sau khi Lead tự kiểm:**
+  - *"off-by-one ở cờ `truncated`"* — **SAI**. Thử thực nghiệm 3 biên (n<limit, n=limit,
+    n>limit) với `limit=3`: lần lượt `truncated=false/false/true`. Đúng cả ba.
+  - *"IO trực tiếp trong `explorer.js`"* — **SAI**, không còn `fs` nào trong file; IO đã
+    được gỡ từ Phase 1. Báo cáo của codex dựa trên bản cũ.
+- [T5.2] **Đã sửa 5 mục:**
+  - Thông báo hết TTL không biến mất: `status-bar.render()` chỉ `setContent`, mà widget
+    không được tự gọi `screen.render()`. Thêm action `requestRender()` cho widget xin vẽ lại.
+  - Terminal không ẩn khi màn hình < 16 dòng: `applyLayout` bám `state.terminalVisible`
+    thay vì quyết định của layout. Đổi sang `Boolean(geo.terminal)`.
+  - `src/core/shell.js` mới: chuyển `resolveShell`/`createShellArgs`/`shellTitle`/
+    `executableExistsOnPath` ra khỏi `terminal-panel.js`. Tầng `ui/` không còn `require("fs")`.
+  - Spawn lỗi làm sập app: `new XTerm()` spawn shell ngay trong constructor, trước khi
+    listener `error` kịp gắn — lỗi sẽ ném ra khỏi handler phím thành `uncaughtException`.
+    Bọc `try/catch`, báo qua `actions.notify` và trả `null`.
+  - Quick open mở trước khi index xong hiện danh sách rỗng trông y như "không có tệp nào".
+    Thêm cờ `ready` và thông báo "Đang lập index tệp".
+- [T5.2] `createTerminalPanel` nay nhận `actions` cho đúng chữ ký trong CONTRACTS.md.
+- [T5.2] Mục Thấp *"thiếu `cursor.desiredCol` trong shape khởi tạo"* — **đúng, đã sửa.**
+  `moveCursor` đọc `desiredCol` khi đi dọc, thiếu thì `Math.min(undefined, len)` ra `NaN`.
+- [T5.2] `test/shell.test.js` — test cho module `core/shell.js` mới. 37 → 41 test. (agy)
+
 **Đã biết chưa xong**
 
+- Mục Trung *"`terminal-panel` tự mutate state rồi gọi `emitChange`"* — **đúng, chưa sửa.**
+  Sửa cho chuẩn phải thêm mutator vào `workspace-state.js` rồi đổi ~5 chỗ trong panel;
+  đó là thay đổi quyền sở hữu state, cần một vòng review riêng chứ không làm ngay trước tag.
+- Mục Trung *"`closeTab()` để process treo"* — **đúng, chưa sửa được.** `releaseTerminal()`
+  chỉ gỡ listener chứ không kết thúc pty. Không vá bằng `pty.kill()` vì PHASE0 §7 đo được
+  nó làm crash. Hiện **chưa phím nào gọi tới**; đã ghi cảnh báo ngay trên hàm để không ai
+  nối nhầm. Thoát cả app vẫn sạch (smoke kiểm mỗi lần chạy).
+- 3 mục Thấp của codex (thiếu `cursor.desiredCol` trong shape khởi tạo, `runUi()` không
+  async, thiếu JSDoc) — chưa xử, không ảnh hưởng hành vi.
 - Mục Cao thứ ba của codex — `shutdown()` không gọi `terminalPanel.destroy()` — **chưa sửa,
   cố ý**: smoke pty đo được thoát mã 0 và không sót tiến trình con, PHASE0 §7 cấm đụng đường
   thoát. Cần ca tái hiện được rồi mới đổi.

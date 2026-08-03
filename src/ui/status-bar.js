@@ -13,7 +13,7 @@ const { guessLang } = require("../core/language");
  * @param {object} options.geometry - { left, top, width, height }
  * @returns {object} { element, render, setGeometry, destroy, setStatus }
  */
-function createStatusBar({ screen, state, geometry }) {
+function createStatusBar({ screen, state, geometry, actions }) {
   let tempMessage = "";
   let tempTimer = null;
 
@@ -45,6 +45,10 @@ function createStatusBar({ screen, state, geometry }) {
         tempMessage = "";
         tempTimer = null;
         render();
+        // Hết TTL là sự kiện nằm ngoài vòng render của ui.js. render() chỉ
+        // setContent, widget không được tự gọi screen.render() — nếu không xin
+        // vẽ lại thì chữ đã xoá vẫn nằm nguyên trên màn hình.
+        if (actions && actions.requestRender) actions.requestRender();
       }, ttlMs);
     }
   }

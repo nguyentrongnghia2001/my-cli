@@ -33,7 +33,9 @@ function createBuffer(content) {
   return {
     lines,
     eol,
-    cursor: { line: 0, col: 0 },
+    // desiredCol phải có sẵn: moveCursor đọc nó khi đi dọc, thiếu thì
+    // Math.min(undefined, len) ra NaN.
+    cursor: { line: 0, col: 0, desiredCol: 0 },
     scroll: { top: 0, left: 0 },
     dirty: false,
     _lastMoveVertical: false

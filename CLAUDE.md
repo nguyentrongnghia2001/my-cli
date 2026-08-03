@@ -91,7 +91,8 @@ src/ui/         blessed widgets — no file IO
 `src/core/` — `language.js` (extension → highlight.js language), `fs-tree.js` (one
 directory level, dirs before files), `text-buffer.js` (line array, mutates in place,
 preserves the file's original EOL), `workspace-state.js` (state + `onChange`),
-`keymap.js` (focus-aware dispatcher), `fuzzy.js`, `file-index.js`.
+`keymap.js` (focus-aware dispatcher), `fuzzy.js`, `file-index.js`, `shell.js` (which
+shell to spawn, and its args — it lives here, not in the widget, because it touches disk).
 
 `src/ui/` — `layout.js` (integer geometry for 7 regions), `explorer.js`, `editor-view.js`,
 `tab-bar.js`, `status-bar.js`, `prompt.js`, `quick-open.js`, `terminal-panel.js`.

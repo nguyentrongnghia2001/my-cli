@@ -79,12 +79,14 @@ function runUi(dir = ".") {
 
   // ----- widget -----
 
-  const statusBar = createStatusBar({ screen, state, geometry: EMPTY_GEOMETRY });
+  // Khai báo trước widget: các widget nhận tham chiếu này rồi đọc thuộc tính
+  // lúc gọi, nên phần thân được gắn ở dưới.
+  const actions = {};
+
+  const statusBar = createStatusBar({ screen, state, geometry: EMPTY_GEOMETRY, actions });
   const prompt = createPrompt({ screen });
 
   const notify = (message) => statusBar.setStatus(message);
-
-  const actions = {};
 
   const explorer = createExplorer({ screen, state, geometry: EMPTY_GEOMETRY, actions });
   const editorView = createEditorView({ screen, state, geometry: EMPTY_GEOMETRY, actions });
@@ -103,7 +105,7 @@ function runUi(dir = ".") {
   // panel còn đang ẩn (SPEC §4: mặc định ẩn).
   let terminalPanel = null;
   let quickOpen = null;
-  let fileIndex = { paths: [], truncated: false };
+  let fileIndex = { paths: [], truncated: false, ready: false };
 
   const widgets = () => [explorer, tabBar, editorView, terminalPanel, statusBar].filter(Boolean);
 
@@ -201,7 +203,10 @@ function runUi(dir = ".") {
         height: geo.terminalTabBar.height + geo.terminal.height,
       });
     }
-    setTerminalVisible(state.terminalVisible);
+    // Dùng quyết định của layout, không dùng state thô: computeLayout tự tắt
+    // terminal khi màn hình < 16 dòng và trả geo.terminal = null. Bám theo
+    // state.terminalVisible thì panel vẫn hiện với hình học cũ.
+    setTerminalVisible(Boolean(geo.terminal));
   }
 
   // Panel tạo trễ vì khởi tạo là spawn shell ngay.
@@ -349,7 +354,10 @@ function runUi(dir = ".") {
         });
         applyLayout();
       }
-      if (fileIndex.truncated) notify("Index bị cắt ở 20.000 tệp — có thể thiếu kết quả");
+      // Index chạy nền. Mở quick open sớm mà không báo gì thì danh sách rỗng
+      // trông y như "không tìm thấy tệp nào".
+      if (!fileIndex.ready) notify("Đang lập index tệp — kết quả có thể chưa đủ");
+      else if (fileIndex.truncated) notify("Index bị cắt ở 20.000 tệp — có thể thiếu kết quả");
       enterOverlay();
       quickOpen.open();
     },
@@ -357,6 +365,12 @@ function runUi(dir = ".") {
     // quick-open tự gọi khi nó đóng; không có promise để bọc như prompt.
     closeOverlay() {
       leaveOverlay();
+    },
+
+    // Cho widget xin vẽ lại khi nó thay đổi ngoài vòng render (ví dụ hết TTL
+    // của thông báo). Widget vẫn không được tự gọi screen.render().
+    requestRender() {
+      scheduleRender();
     },
 
     quit() {
@@ -469,7 +483,7 @@ function runUi(dir = ".") {
   // Index chạy nền, không chặn UI mở lên.
   buildIndex(root)
     .then((index) => {
-      fileIndex = index;
+      fileIndex = { ...index, ready: true };
       if (index.truncated) notify("Index bị cắt ở 20.000 tệp");
     })
     .catch((error) => notify(`Không lập được index: ${error.message}`));

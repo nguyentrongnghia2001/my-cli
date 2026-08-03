@@ -1,9 +1,9 @@
 "use strict";
 
-const fs = require("fs");
 const path = require("path");
 const blessed = require("blessed");
 const { emitChange } = require("../core/workspace-state");
+const { resolveShell, createShellArgs, shellTitle } = require("../core/shell");
 
 let nodePty = null;
 let nodePtyError = null;
@@ -98,50 +98,7 @@ function applyGeometry(element, geometry) {
   element.height = geometry.height;
 }
 
-// ---------- shell ----------
-
-function executableExistsOnPath(command) {
-  const pathValue = process.env.PATH || process.env.Path || "";
-  const extensions = (process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD")
-    .split(";")
-    .filter(Boolean);
-  const commandExtension = path.extname(command);
-  const candidates = commandExtension ? [command] : [command, ...extensions.map((ext) => command + ext)];
-
-  return pathValue.split(path.delimiter).some((entry) => {
-    const directory = entry.replace(/^"|"$/g, "");
-    if (!directory) {
-      return false;
-    }
-
-    return candidates.some((candidate) => fs.existsSync(path.join(directory, candidate)));
-  });
-}
-
-function resolveShell() {
-  if (process.platform === "win32") {
-    return executableExistsOnPath("pwsh") ? "pwsh" : "powershell.exe";
-  }
-
-  return process.env.SHELL || "bash";
-}
-
-function createShellArgs(command) {
-  if (!command) {
-    return [];
-  }
-
-  if (process.platform === "win32") {
-    return ["-NoLogo", "-NoProfile", "-Command", command];
-  }
-
-  return ["-lc", command];
-}
-
-function shellTitle(shell) {
-  const title = path.basename(shell);
-  return process.platform === "win32" ? title.replace(/\.exe$/i, "") : title;
-}
+// Việc dò shell đã chuyển sang src/core/shell.js — widget không được làm file IO.
 
 // ---------- unavailable fallback ----------
 
@@ -230,7 +187,7 @@ function createUnavailablePanel({ screen, state, geometry }) {
  * @param {{ screen: object, state: object, geometry: object }} options
  * @returns {{ element: object[], render: () => void, setGeometry: (geometry: object) => void, destroy: () => void, newTab: (options?: { command?: string }) => string, closeTab: (id: string) => void, setActiveTab: (id: string) => void, focusActive: () => void }}
  */
-function createTerminalPanel({ screen, state, geometry }) {
+function createTerminalPanel({ screen, state, geometry, actions }) {
   if (!nodePty || !XTerm) {
     return createUnavailablePanel({ screen, state, geometry });
   }
@@ -343,7 +300,13 @@ function createTerminalPanel({ screen, state, geometry }) {
     const title = command || shellTitle(shell);
     nextId += 1;
 
-    const term = new XTerm({
+    // Constructor của XTerm spawn shell NGAY, trước khi kịp gắn listener
+    // "error" bên dưới. Nếu shell không chạy được thì lỗi ném thẳng ra khỏi
+    // newTab() — vốn được gọi từ handler phím — thành uncaughtException và
+    // làm hỏng terminal của người dùng. Phải báo qua actions.notify.
+    let term;
+    try {
+      term = new XTerm({
       left: currentGeometry.terminal.left,
       top: currentGeometry.terminal.top,
       width: currentGeometry.terminal.width,
@@ -360,7 +323,12 @@ function createTerminalPanel({ screen, state, geometry }) {
         fg: "default",
         bg: "default"
       }
-    });
+      });
+    } catch (error) {
+      const message = `Không mở được terminal (${shell}): ${error.message}`;
+      if (actions && actions.notify) actions.notify(message);
+      return null;
+    }
 
     screen.append(term);
 
@@ -426,6 +394,11 @@ function createTerminalPanel({ screen, state, geometry }) {
     term._cell = null;
   }
 
+  // CHƯA ĐƯỢC NỐI VÀO PHÍM NÀO — và đừng nối cho tới khi xử xong việc dưới đây.
+  // releaseTerminal() chỉ gỡ listener chứ không kết thúc pty, nên đóng một tab
+  // lẻ sẽ để shell sống tiếp mãi. Không thể vá bằng pty.kill(): PHASE0 §7 đo
+  // được nó làm conpty_console_list_agent.js crash "AttachConsole failed".
+  // Thoát cả app thì vẫn sạch vì ConPTY tự dọn khi tiến trình chủ chết.
   function closeTab(id) {
     const index = tabs.findIndex((tab) => tab.id === id);
     if (index === -1) {
