@@ -32,29 +32,62 @@ function toInteger(value) {
   return Math.max(0, Math.floor(value));
 }
 
-function normalizeGeometry(geometry) {
-  const terminalGeometry = geometry && geometry.terminal ? geometry.terminal : geometry;
-  const normalizedTerminal = {
-    left: toInteger(terminalGeometry && terminalGeometry.left),
-    top: toInteger(terminalGeometry && terminalGeometry.top),
-    width: toInteger(terminalGeometry && terminalGeometry.width),
-    height: toInteger(terminalGeometry && terminalGeometry.height)
+function normalizeRegion(region) {
+  return {
+    left: toInteger(region && region.left),
+    top: toInteger(region && region.top),
+    width: toInteger(region && region.width),
+    height: toInteger(region && region.height)
   };
-  const providedTabBar = geometry && geometry.terminalTabBar;
+}
+
+function combineRegions(first, second) {
+  const left = Math.min(first.left, second.left);
+  const top = Math.min(first.top, second.top);
+  const right = Math.max(first.left + first.width, second.left + second.width);
+  const bottom = Math.max(first.top + first.height, second.top + second.height);
 
   return {
-    terminal: normalizedTerminal,
-    tabBar: providedTabBar ? {
-      left: toInteger(providedTabBar.left),
-      top: toInteger(providedTabBar.top),
-      width: toInteger(providedTabBar.width),
-      height: toInteger(providedTabBar.height)
-    } : {
-      left: normalizedTerminal.left,
-      top: Math.max(0, normalizedTerminal.top - 1),
-      width: normalizedTerminal.width,
-      height: normalizedTerminal.height > 0 ? 1 : 0
-    }
+    left,
+    top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top)
+  };
+}
+
+function normalizeGeometry(geometry) {
+  if (!geometry || !geometry.terminal) {
+    const panel = normalizeRegion(geometry);
+    const tabBarHeight = panel.height > 0 ? 1 : 0;
+    const tabBar = {
+      left: panel.left,
+      top: panel.top,
+      width: panel.width,
+      height: tabBarHeight
+    };
+    const terminal = {
+      left: panel.left,
+      top: panel.top + tabBarHeight,
+      width: panel.width,
+      height: Math.max(0, panel.height - tabBarHeight)
+    };
+
+    return { panel, terminal, tabBar };
+  }
+
+  const terminal = normalizeRegion(geometry.terminal);
+  const providedTabBar = geometry.terminalTabBar;
+  const tabBar = providedTabBar ? normalizeRegion(providedTabBar) : {
+    left: terminal.left,
+    top: Math.max(0, terminal.top - 1),
+    width: terminal.width,
+    height: terminal.height > 0 ? 1 : 0
+  };
+
+  return {
+    panel: combineRegions(tabBar, terminal),
+    terminal,
+    tabBar
   };
 }
 
@@ -113,7 +146,7 @@ function shellTitle(shell) {
 // ---------- unavailable fallback ----------
 
 function createUnavailablePanel({ screen, state, geometry }) {
-  let currentGeometry = normalizeGeometry(geometry).terminal;
+  let currentGeometry = normalizeGeometry(geometry).panel;
   const missingPackages = [];
 
   if (!nodePty || nodePtyError) {
@@ -154,7 +187,7 @@ function createUnavailablePanel({ screen, state, geometry }) {
   }
 
   function setGeometry(nextGeometry) {
-    currentGeometry = normalizeGeometry(nextGeometry).terminal;
+    currentGeometry = normalizeGeometry(nextGeometry).panel;
     applyGeometry(element, currentGeometry);
     render();
   }
