@@ -1,0 +1,21 @@
+{
+  "name": "wsedit",
+  "version": "1.0.0",
+  "description": "CLI nhe de xem va sua file ngay trong workspace",
+  "main": "bin/wsedit.js",
+  "bin": {
+    "wsedit": "./bin/wsedit.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "chalk": "^4.1.2",
+    "cli-highlight": "^2.1.11",
+    "commander": "^15.0.0"
+  }
+}
