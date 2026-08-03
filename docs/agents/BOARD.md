@@ -52,8 +52,8 @@ Ký hiệu người làm: `agy` = Antigravity/Gemini · `codex` = Codex · `Lead
 
 | ID | Việc | Ai | File sở hữu | Phụ thuộc | Trạng thái |
 |----|------|-----|-------------|-----------|------------|
-| T4.1 | `terminal-panel.js`: nhiều pty tab, forward phím, `ignoreKeys`, scrollback | codex | `src/ui/terminal-panel.js` | PHASE0, T1.3 | DONE-CHO-REVIEW |
-| T4.2 | Nối toggle/focus/`Ctrl+Shift+R` run prompt + đường thoát vào `ui.js` | Lead | `src/commands/ui.js` | T4.1 | TODO |
+| T4.1 | `terminal-panel.js`: nhiều pty tab, forward phím, `ignoreKeys`, scrollback | codex | `src/ui/terminal-panel.js` | PHASE0, T1.3 | DA-REVIEW |
+| T4.2 | Nối toggle/focus/`Ctrl+Shift+R` run prompt + đường thoát vào `ui.js` | Lead | `src/commands/ui.js` | T4.1 | DA-REVIEW |
 | T4.3 | **Xác nhận PHASE0 §8 trên terminal thật** (gõ, nháy, màu, agent thật, `Ctrl+Shift+<key>`) | **User** | — | T4.2 | TODO |
 
 **Done Phase 4 khi:** chạy `npm test` ở tab 1 và một agent tương tác ở tab 2 cùng lúc · `Ctrl+C` kill agent chứ không thoát wsedit · thoát không sót tiến trình · **T4.3 do User tick**.

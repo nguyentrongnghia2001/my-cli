@@ -92,6 +92,22 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
 
 ## Phase 4 — Terminal panel
 
+- [T4.1] `src/ui/terminal-panel.js` — nhiều pty tab, `ignoreKeys` chỉ giữ 2 phím, fallback khi
+  thiếu node-pty. Nhận cả vùng gộp lẫn dạng tách, tự cắt 1 dòng cho thanh tab của nó. (codex)
+- [T4.2] Nối vào `ui.js`: `Ctrl+T` mở pane/tab mới, `Ctrl+R` (chỉ ở editor) hỏi lệnh rồi chạy,
+  `Alt+←/→` đổi tab. Panel tạo trễ vì khởi tạo là spawn shell ngay. (Lead)
+- [T4.2] `tools/ui-smoke.js` mở rộng: gõ lệnh thật vào pane và đợi output, resize khi terminal
+  đang mở, và kiểm **không sót tiến trình mồ côi** bằng probe có dấu trong dòng lệnh. 12/12. (Lead)
+- Test cho `tab-bar` và `quick-open` — hai widget trước đó không có test nào. (agy)
+
+**Đã biết chưa xong (Phase 4)**
+
+- Codex không trả về được báo cáo review (task treo phía nó). Lead tự kiểm 6 luật cứng PHASE0
+  trên bản trên đĩa thay vì tin báo cáo — nhưng **chưa có ai đọc kỹ toàn bộ** `terminal-panel.js`.
+- `Ctrl+\`` chưa từng được bấm thử bằng máy: smoke test dùng `Ctrl+T` vì chính `Ctrl+\`` là thứ
+  PHASE0 §8 chưa xác nhận. Vẫn cần User tick.
+
+
 *(trống — chưa bắt đầu)*
 
 - [T4.1] `src/ui/terminal-panel.js` — terminal nhiều tab với PTY thật, scrollback 5.000 dòng, fallback dependency và cleanup theo PHASE0. (codex)
