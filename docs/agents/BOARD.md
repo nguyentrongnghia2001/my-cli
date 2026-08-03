@@ -62,10 +62,10 @@ Ký hiệu người làm: `agy` = Antigravity/Gemini · `codex` = Codex · `Lead
 
 | ID | Việc | Ai | File sở hữu | Phụ thuộc | Trạng thái |
 |----|------|-----|-------------|-----------|------------|
-| T5.1 | `uncaughtException` → `screen.destroy()` trước khi in stack; chốt đường thoát | Lead | `src/commands/ui.js` | Phase 4 | TODO |
-| T5.2 | Review chéo toàn bộ diff v1 (đối chiếu SPEC + CONTRACTS + PHASE0) | codex | — (chỉ báo cáo) | T5.1 | TODO |
-| T5.3 | Cập nhật `README.md`: lệnh `ui`, keymap, yêu cầu node-pty, hạn chế resize ở PHASE0 §4 | agy | `README.md` | T5.1 | TODO |
-| T5.4 | Cập nhật `CLAUDE.md` mục Structure + Coding style cho cây module mới | Lead | `CLAUDE.md` | T5.1 | TODO |
+| T5.1 | `uncaughtException` → `screen.destroy()` trước khi in stack; chốt đường thoát | Lead | `src/commands/ui.js` | Phase 4 | DA-REVIEW |
+| T5.2 | Review chéo toàn bộ diff v1 (đối chiếu SPEC + CONTRACTS + PHASE0) | codex | — (chỉ báo cáo) | T5.1 | DANG-LAM |
+| T5.3 | Cập nhật `README.md`: lệnh `ui`, keymap, yêu cầu node-pty, hạn chế resize ở PHASE0 §4 | agy | `README.md` | T5.1 | DA-REVIEW |
+| T5.4 | Cập nhật `CLAUDE.md` mục Structure + Coding style cho cây module mới | Lead | `CLAUDE.md` | T5.1 | DA-REVIEW |
 | T5.5 | Chốt `CHANGELOG.md`, gắn tag v1 | Lead | `docs/agents/CHANGELOG.md` | tất cả | TODO |
 
 **Done Phase 5 khi:** checklist nghiệm thu SPEC §11 xanh hết · README/CLAUDE.md khớp code thật · review của codex không còn mục Cao.

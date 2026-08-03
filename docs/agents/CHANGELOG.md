@@ -100,31 +100,32 @@ Chi tiết đầy đủ: `docs/agents/PHASE0.md`.
   đang mở, và kiểm **không sót tiến trình mồ côi** bằng probe có dấu trong dòng lệnh. 12/12. (Lead)
 - Test cho `tab-bar` và `quick-open` — hai widget trước đó không có test nào. (agy)
 
-**Đã biết chưa xong (Phase 4)**
+**Đã biết chưa xong**
 
 - Codex không trả về được báo cáo review (task treo phía nó). Lead tự kiểm 6 luật cứng PHASE0
   trên bản trên đĩa thay vì tin báo cáo — nhưng **chưa có ai đọc kỹ toàn bộ** `terminal-panel.js`.
+  Đã giao lại cho codex ở T5.2.
 - `Ctrl+\`` chưa từng được bấm thử bằng máy: smoke test dùng `Ctrl+T` vì chính `Ctrl+\`` là thứ
   PHASE0 §8 chưa xác nhận. Vẫn cần User tick.
-
-
-*(trống — chưa bắt đầu)*
-
-- [T4.1] `src/ui/terminal-panel.js` — terminal nhiều tab với PTY thật, scrollback 5.000 dòng, fallback dependency và cleanup theo PHASE0. (codex)
-
-**Đã biết chưa xong**
-
-- (trống)
 
 ---
 
 ## Phase 5 — Hoàn thiện
 
-*(trống — chưa bắt đầu)*
+- [T5.1] `uncaughtException` + `unhandledRejection` → `screen.destroy()` rồi mới in stack.
+  Đã có sẵn từ T1.8, nay xác nhận lại trên code thật. (Lead)
+- [T5.3] `README.md` — thêm lệnh `ui`, bảng phím, yêu cầu `node-pty`, mục hạn chế đã biết. (agy)
+- [T5.4] `CLAUDE.md` — viết lại mục Structure: file cũ vẫn ghi "everything lives in a single
+  file" và dặn **không** tạo cây `src/`, tức là chỉ dẫn ngược hẳn với code thật. Thêm mục
+  Testing (gồm bẫy `npm test` và bẫy `node --test test/`), 3 ranh giới kiến trúc, và các
+  luật cứng của `ui`. (Lead)
 
 **Đã biết chưa xong**
 
-- (trống)
+- `npm test` vẫn là placeholder của npm-init và **thoát mã 1**. Gate thật là `node --test`.
+  Chưa sửa `package.json` vì CLAUDE.md cấm thêm tooling khi chưa được yêu cầu — cần User quyết.
+- Explorer: SPEC §6 giao `Ctrl+R` cho việc nạp lại thư mục nhưng chưa thấy chỗ nối trong
+  `ui.js`; README chỉ mô tả `Ctrl+R` ở editor. Cần đối chiếu lại ở T5.2.
 
 ---
 
