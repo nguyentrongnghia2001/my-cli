@@ -1,5 +1,12 @@
 # Architecture Review
 
+> **Historical audit snapshot.** The current-state source observations remain useful,
+> but the proposed headless AI-agent-platform target is superseded. The approved target
+> is the lightweight desktop terminal deck in
+> [`docs/PRODUCT_DIRECTION.md`](docs/PRODUCT_DIRECTION.md) and
+> [`docs/DESKTOP_ARCHITECTURE.md`](docs/DESKTOP_ARCHITECTURE.md). Measurements and pass
+> counts in this snapshot require re-verification before reuse.
+
 ## Executive assessment
 
 This repository is not yet an AI CLI agent. It is a small CommonJS terminal workspace editor named `wsedit` with a file explorer, editor, quick-open overlay, and a PTY-backed terminal. It can host existing agent CLIs as opaque terminal processes, but it does not implement an agent runtime, model provider, structured streaming, tool calling, MCP, sessions, memory, task scheduling, permissions, plugins, or durable events.

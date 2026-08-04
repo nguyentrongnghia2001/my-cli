@@ -1,5 +1,8 @@
 # BOARD — bảng việc
 
+> **Archived work board.** No task in this board is active by default. The approved
+> desktop sequence and exit gates are in `../DESKTOP_IMPLEMENTATION_PLAN.md`.
+
 Trạng thái: `TODO` · `DANG-LAM` · `DONE-CHO-REVIEW` · `DA-REVIEW` · `BLOCKED`
 
 Agent chỉ được ghi vào cột **Trạng thái** + **Ghi chú** của task mình, và các mục ở cuối file.

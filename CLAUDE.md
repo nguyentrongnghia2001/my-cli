@@ -9,34 +9,35 @@ replace `AGENTS.md`.
 
 1. `AGENTS.md`
 2. The current user request and referenced files
-3. `MILESTONE.md`
-4. `REFACTOR_PLAN.md`
-5. `ARCHITECTURE_REVIEW.md`
-6. Relevant current source and tests
-7. Historical specs only when needed for compatibility
+3. `docs/PRODUCT_DIRECTION.md`
+4. `docs/DESKTOP_REQUIREMENTS.md`
+5. `docs/DESKTOP_ARCHITECTURE.md`
+6. `docs/DESKTOP_IMPLEMENTATION_PLAN.md`
+7. `docs/ROADMAP.md`
+8. Relevant current source and tests
+9. Historical documents only when needed for existing CLI compatibility or evidence
 
-Do not treat `SPEC-multi-agent.md` or `docs/agents/**` as proof that a structured
-multi-agent runtime exists. The current PTY panel hosts external processes; it does
-not provide internal agent orchestration, durable tasks, permissions, or provider
-stream semantics.
+Do not treat `MILESTONE.md`, `REFACTOR_PLAN.md`, `FOLDER_STRUCTURE.md`,
+`SPEC-multi-agent.md`, or `docs/agents/**` as active product plans. They are historical.
+The current PTY panel hosts external processes; neither the CLI nor the planned desktop
+implements internal agent orchestration, model APIs, durable tasks, MCP, or plugins.
 
 ## Claude-specific working rules
 
 - Plan from verified repository evidence, not assumed framework conventions.
-- Follow the commit and milestone dependency order in `MILESTONE.md` unless the user
-  explicitly reprioritizes it.
+- Follow the phase and exit-gate order in `docs/DESKTOP_IMPLEMENTATION_PLAN.md` unless
+  the user explicitly reprioritizes it.
 - Prefer a small vertical slice with tests over a broad scaffold.
-- Do not create empty target folders merely to resemble `FOLDER_STRUCTURE.md`.
+- Do not create empty target folders merely to resemble a planned architecture.
 - Preserve the current CommonJS style in existing `bin/**` and `src/**` files.
-- Use strict TypeScript only for new packages introduced by their approved milestone;
-  do not perform an unsolicited whole-repository conversion.
-- Keep the existing CLI/TUI operational during the strangler migration.
-- Do not expose mutable UI state, Blessed objects, PTY handles, storage adapters, or
-  provider SDK types as public runtime or plugin APIs.
-- Do not implement model-callable writes, shell execution, MCP, or plugin tools before
-  workspace containment and the shared permission/execution boundary exist.
-- Never equate terminal tabs with tasks or agents.
-- Do not build web or VSCode business logic outside the shared runtime protocol.
+- Use strict TypeScript in the desktop frontend; do not convert the current CLI/TUI.
+- Keep the existing CLI/TUI operational during the additive desktop migration.
+- Add the desktop application under `desktop/`; do not create a monorepo or shared
+  package without an approved concrete use case.
+- Keep terminal output outside Vue reactive state and keep PTY ownership in Rust.
+- Do not add Pinia, Nuxt, a UI framework, database, model runtime, MCP, plugins,
+  worktrees, orchestration, editor features, or a dynamic layout tree to the MVP.
+- Never equate a launch profile or external CLI process with an internal agent model.
 
 ## Delegation
 
@@ -57,9 +58,11 @@ When delegation is explicitly requested:
 - Never add `process.exit()` merely to make a hanging test appear green.
 - For terminal work, verify process-tree cleanup and terminal restoration, not only
   in-memory tab state.
-- For workspace work, test real path containment including platform-specific links.
-- For events/storage, prove replay and migration behavior.
-- For public contracts, verify that infrastructure and vendor types do not leak.
+- For desktop workspace work, verify cwd validation and Windows paths with spaces and
+  Unicode; do not claim the workspace is a sandbox.
+- For terminal work, test pane/generation routing, bounded output, resize, and real
+  process-tree cleanup.
+- For packaging work, verify the installed GUI-started application, not only dev mode.
 
 ## Repository safety
 

@@ -1,5 +1,9 @@
 # CONTRACTS — interface chốt giữa các module
 
+> **Legacy CLI/TUI contract.** Keep these contracts only when maintaining the existing
+> Node/Blessed surface. They do not define Vue, Tauri, xterm.js, or Rust PTY behavior.
+> Active desktop ownership and lifecycle contracts are in `../DESKTOP_ARCHITECTURE.md`.
+
 Đây là **hợp đồng**, không phải gợi ý. Agent làm module A được phép giả định module B đúng contract này
 mà không cần đọc code của B. Ai muốn đổi signature: **không tự đổi** — ghi vào `BOARD.md` mục "Đề xuất
 đổi contract" và chờ Lead chốt. Đổi ngầm một signature là làm vỡ việc của agent khác.

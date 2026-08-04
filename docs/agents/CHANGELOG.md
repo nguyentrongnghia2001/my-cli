@@ -1,5 +1,9 @@
 # CHANGELOG — theo từng Phase
 
+> **Historical implementation log.** Pass counts and “done” labels below describe past
+> runs and may be stale. Current claims require fresh executable evidence. This file is
+> not a product plan; see `../PRODUCT_DIRECTION.md`.
+
 Mỗi agent thêm **1 dòng** vào đúng Phase của task mình, dạng:
 
 ```

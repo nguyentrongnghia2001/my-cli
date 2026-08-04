@@ -1,5 +1,10 @@
 # CTO Implementation Plan and Milestones
 
+> **Archived plan.** This document planned a headless AI-agent runtime and is no longer
+> an implementation authority. Use
+> [`docs/DESKTOP_IMPLEMENTATION_PLAN.md`](docs/DESKTOP_IMPLEMENTATION_PLAN.md) for the
+> approved desktop phases and exit gates.
+
 ## Planning position
 
 The next 30 commits should establish a trustworthy, headless, workspace-first runtime before model output is allowed to perform writes. They deliberately stop at `v0.3`: durable sessions and normalized provider streaming. Compressing tool security, agents, scheduling, MCP, plugins, four clients, and production hardening into the same 30 commits would create large, unreviewable changes and undermine the stated maintainability goal.

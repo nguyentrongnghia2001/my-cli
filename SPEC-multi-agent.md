@@ -1,5 +1,9 @@
 # SPEC — chạy nhiều agent trong một workspace (v2)
 
+> **Archived proposal.** This Node/Blessed multi-agent TUI plan is not an active product
+> direction. Its worktree, multi-workspace, dynamic split, and persistence scope is
+> outside the desktop MVP. See [`docs/PRODUCT_DIRECTION.md`](docs/PRODUCT_DIRECTION.md).
+
 Trạng thái: draft, chờ chốt §10.
 Phạm vi: mở rộng terminal panel của `wsedit ui` để chạy **nhiều agent CLI song song
 trên cùng một repo**, nhìn thấy và lái được tất cả cùng lúc.

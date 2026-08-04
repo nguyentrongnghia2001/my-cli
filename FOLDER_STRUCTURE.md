@@ -1,5 +1,10 @@
 # Recommended Folder Structure
 
+> **Archived target.** The large `apps/`/`packages/` monorepo below is not approved for
+> the desktop MVP. The active decision is the lightweight `desktop/src` plus
+> `desktop/src-tauri` structure in
+> [`docs/DESKTOP_ARCHITECTURE.md`](docs/DESKTOP_ARCHITECTURE.md).
+
 ## Recommendation
 
 Move toward a workspace/monorepo with narrowly scoped packages, but do it incrementally. The current repository has one npm package and only 4,033 lines of JavaScript; creating every package immediately would be over-engineering. Start with `contracts`, `core`, `workspace`, `events`, `terminal`, and `cli`, then add packages when a real implementation and independent boundary exist.

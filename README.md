@@ -2,9 +2,15 @@
 
 CLI nhẹ để **xem** và **sửa** file ngay trong terminal, dùng như một "app" — cài 1 lần, gõ lệnh ở bất kỳ workspace nào.
 
+> Desktop direction: a separate Vue/Tauri terminal-deck application is currently in
+> specification only; no desktop implementation has started. See
+> [`docs/PRODUCT_DIRECTION.md`](docs/PRODUCT_DIRECTION.md) and
+> [`docs/ROADMAP.md`](docs/ROADMAP.md). The CLI/TUI documented below remains the
+> implemented product.
+
 ## Yêu cầu
 
-- Đã cài [Node.js](https://nodejs.org) (bản 18+). Kiểm tra: `node -v`
+- Đã cài [Node.js](https://nodejs.org) (bản 22.12+ theo dependency hiện tại). Kiểm tra: `node -v`
 
 ## Cài đặt (làm 1 lần)
 

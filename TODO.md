@@ -1,5 +1,10 @@
 # Architecture TODO
 
+> **Archived backlog.** This AI-agent-platform backlog is not active. Relevant baseline
+> lifecycle and verification work has been carried into Phase 0 of
+> [`docs/DESKTOP_IMPLEMENTATION_PLAN.md`](docs/DESKTOP_IMPLEMENTATION_PLAN.md). Do not
+> implement other items here without a new explicit product decision.
+
 This is the executable backlog derived from the audit. Items are ordered by dependency and risk, not by UI visibility. Each checkbox requires tests and documentation appropriate to its scope.
 
 ## Critical — release and safety blockers

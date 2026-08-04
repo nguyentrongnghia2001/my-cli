@@ -1,5 +1,10 @@
 # SPEC — wsedit workspace UI (v1)
 
+> **Historical document.** This specification records the legacy Node/Blessed TUI.
+> Current CLI behavior is determined by source and executable tests. Active desktop
+> product decisions begin at [`docs/PRODUCT_DIRECTION.md`](docs/PRODUCT_DIRECTION.md).
+> Do not use this file to expand the desktop MVP.
+
 Trạng thái: draft, chờ chốt các câu hỏi mở ở §12.
 Phạm vi: thêm lệnh `wsedit ui [dir]` — một workspace UI kiểu VS Code chạy hoàn toàn trong terminal.
 

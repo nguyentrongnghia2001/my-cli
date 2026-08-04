@@ -1,5 +1,10 @@
 # Ordered Refactor Plan
 
+> **Archived plan.** The AI-agent-platform refactor described here is not part of the
+> approved product direction. The existing CLI is retained and the desktop application
+> is added separately. See
+> [`docs/DESKTOP_IMPLEMENTATION_PLAN.md`](docs/DESKTOP_IMPLEMENTATION_PLAN.md).
+
 ## Strategy
 
 Use a strangler refactor. Preserve the current commands and TUI while introducing a headless runtime beside them. Move one behavior at a time behind explicit ports, prove parity, then remove the old path. A big-bang rewrite would erase the few behaviors already tested and make PTY regressions much harder to isolate.

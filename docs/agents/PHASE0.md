@@ -1,5 +1,10 @@
 # Phase 0 — Kết quả spike (ĐÃ XONG, trừ §8)
 
+> **Historical TUI evidence.** This file records Node/`node-pty`/`blessed-xterm`
+> experiments on one environment. It is not evidence for Rust `portable-pty` or the
+> desktop application, and its pass claims must be re-run before being quoted as current.
+> Active desktop gates are in `../DESKTOP_IMPLEMENTATION_PLAN.md`.
+
 Tất cả số liệu dưới đây đo trên máy thật: **Windows 11 Pro 26200, Node v24.16.0, npm 10.9.2, không có `cl.exe`**.
 Agent **không được suy diễn lại** hay viết code trái với mục nào ở đây. Nếu thấy mâu thuẫn → dừng, báo lại, không tự đoán.
 
