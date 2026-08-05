@@ -10,7 +10,7 @@ CLI nhẹ để **xem** và **sửa** file ngay trong terminal, dùng như một
 
 ## Yêu cầu
 
-- Đã cài [Node.js](https://nodejs.org) (bản 22.12+ theo dependency hiện tại). Kiểm tra: `node -v`
+- Đã cài [Node.js](https://nodejs.org) **v18.0.0 trở lên** (kiểm tra: `node -v`). Node 18 LTS hoặc mới hơn được khuyến nghị.
 
 ## Cài đặt (làm 1 lần)
 

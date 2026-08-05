@@ -63,6 +63,11 @@ test("terminal panel closeTab terminates child process cleanly", async () => {
 
   assert.strictEqual(state.terminals.tabs.length, 1, "Tab count reduced to 1");
 
+  // Close all remaining tabs to prevent process leaks
+  for (const tab of [...state.terminals.tabs]) {
+    await panel.closeTab(tab.id);
+  }
+
   screen.destroy();
 });
 
@@ -93,6 +98,11 @@ test("terminal panel closeTab on 1 of 4 tabs leaves remaining 3 tabs unaffected"
   assert.ok(!state.terminals.tabs.some(t => t.id === tab3), "Tab 3 should be removed");
   assert.ok(state.terminals.tabs.some(t => t.id === tab2), "Tab 2 should still exist");
   assert.ok(state.terminals.tabs.some(t => t.id === tab4), "Tab 4 should still exist");
+
+  // Close all remaining tabs to prevent process leaks
+  for (const tab of [...state.terminals.tabs]) {
+    await panel.closeTab(tab.id);
+  }
 
   screen.destroy();
 });

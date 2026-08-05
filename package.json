@@ -6,8 +6,13 @@
   "bin": {
     "wsedit": "./bin/wsedit.js"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/fuzzy.test.js test/layout.test.js test/quick-open.test.js test/shell.test.js test/smoke-ui.test.js test/tab-bar.test.js test/text-buffer.test.js test/verify-contracts.test.js test/verify-explorer.test.js test/verify-ui.test.js",
+    "test:pty": "node --test test/terminal-lifecycle.test.js",
+    "test:all": "node --test"
   },
   "keywords": [],
   "author": "",
