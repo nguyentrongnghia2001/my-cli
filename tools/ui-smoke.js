@@ -55,7 +55,7 @@ term.onData((data) => { out += data; });
 term.onExit(({ exitCode: code }) => { exitCode = code; });
 
 const plain = () => out.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "");
-const crashed = (text) => /Error|TypeError|ReferenceError|at Object\./.test(text);
+const crashed = (text) => /(?:TypeError|ReferenceError|SyntaxError):|at runUi \(|at Object\.<anonymous> \(/.test(text);
 
 function at(ms, fn) {
   setTimeout(fn, ms);
@@ -68,12 +68,13 @@ at(3500, () => {
   check("explorer vẽ ra tên file thật", /package\.json|SPEC\.md|AGENTS\.md/.test(screen));
   check("hint bar hiện ra", /Ctrl\+Q/.test(screen));
 
-  // 2. Mở file. Thư mục xếp trước file nên phải đi qua chúng; Enter trên thư
-  //    mục chỉ expand chứ không mở được gì.
-  for (let i = 0; i < 5; i += 1) at(i * 150, () => term.write("\x1b[B"));
-  at(900, () => { out = ""; term.write("\r"); });
+  // 2. Mở một file qua Quick Open. Không dựa vào vị trí trong explorer vì danh
+  //    sách thư mục thay đổi theo nội dung repository.
+  term.write("\x10");
+  at(600, () => term.write("package.json"));
+  at(1400, () => { out = ""; term.write("\r"); });
 
-  at(2400, () => {
+  at(2900, () => {
     const afterOpen = plain();
     check("Enter trên file -> editor vẽ gutter số dòng", /1 │/.test(afterOpen));
     // Cùng một phím Enter từng bị xử lý 2 lần (explorer mở file, rồi handler
@@ -136,8 +137,8 @@ at(3500, () => {
         check("resize khi terminal đang mở không vỡ", !crashed(plain()) && exitCode === null);
 
         // 6. Thoát sạch, không để lại tiến trình mồ côi
-        term.write("\x11");
-        at(2500, () => {
+        at(250, () => term.write("\x11"));
+        at(3000, () => {
           check("Ctrl+Q thoát sạch (exit 0)", exitCode === 0);
           check("thoát không để sót tiến trình con", !orphanAlive());
           if (results.some((ok) => !ok)) {

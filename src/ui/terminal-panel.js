@@ -388,8 +388,11 @@ function createTerminalPanel({ screen, state, geometry, actions }) {
       term.term.dispose();
       term.term = null;
     }
-    if (term.pty && typeof term.pty.removeAllListeners === "function") {
-      term.pty.removeAllListeners();
+    if (term.pty && typeof term.terminate === "function") {
+      // node-pty keeps a native handle until destroy() is called, even after the
+      // shell has emitted its exit event. blessed-xterm's terminate() performs
+      // that final release and is safe for an already-exited PTY.
+      term.terminate();
     }
     term._cell = null;
   }
@@ -459,6 +462,7 @@ function createTerminalPanel({ screen, state, geometry, actions }) {
     }
 
     const [tab] = tabs.splice(index, 1);
+    const closedPid = tab.term && tab.term.pty ? tab.term.pty.pid : null;
     await terminatePtyAsync(tab);
     releaseTerminal(tab);
 
@@ -478,6 +482,7 @@ function createTerminalPanel({ screen, state, geometry, actions }) {
 
     render();
     notifyChange();
+    return closedPid;
   }
 
   function setActiveTab(id) {

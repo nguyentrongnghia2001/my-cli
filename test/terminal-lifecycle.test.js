@@ -59,9 +59,11 @@ test("terminal panel closeTab terminates child process cleanly", async () => {
   await new Promise((r) => setTimeout(r, 500));
 
   const tabToClose = state.terminals.tabs[1].id;
-  await panel.closeTab(tabToClose);
+  const closedPid = await panel.closeTab(tabToClose);
 
   assert.strictEqual(state.terminals.tabs.length, 1, "Tab count reduced to 1");
+  assert.ok(closedPid, "Closed tab must have a PTY process ID");
+  assert.strictEqual(isPidAlive(closedPid), false, "Closed tab PTY process must be dead");
 
   // Close all remaining tabs to prevent process leaks
   for (const tab of [...state.terminals.tabs]) {
@@ -92,12 +94,14 @@ test("terminal panel closeTab on 1 of 4 tabs leaves remaining 3 tabs unaffected"
   await new Promise((r) => setTimeout(r, 500));
 
   // Close tab 3
-  await panel.closeTab(tab3);
+  const closedPid = await panel.closeTab(tab3);
 
   assert.strictEqual(state.terminals.tabs.length, 3, "Should have 3 tabs remaining");
   assert.ok(!state.terminals.tabs.some(t => t.id === tab3), "Tab 3 should be removed");
   assert.ok(state.terminals.tabs.some(t => t.id === tab2), "Tab 2 should still exist");
   assert.ok(state.terminals.tabs.some(t => t.id === tab4), "Tab 4 should still exist");
+  assert.ok(closedPid, "Closed tab must have a PTY process ID");
+  assert.strictEqual(isPidAlive(closedPid), false, "Closed tab PTY process must be dead");
 
   // Close all remaining tabs to prevent process leaks
   for (const tab of [...state.terminals.tabs]) {
