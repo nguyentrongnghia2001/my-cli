@@ -68,8 +68,21 @@ pub fn close_pane(
     manager.close_pane(&pane_id, generation)
 }
 
+use crate::state_storage::{load_persisted_state, save_persisted_state, AppStateDto};
+
+#[tauri::command]
+pub fn load_app_state() -> AppStateDto {
+    load_persisted_state()
+}
+
+#[tauri::command]
+pub fn save_app_state(state: AppStateDto) -> std::result::Result<(), String> {
+    save_persisted_state(&state)
+}
+
 #[tauri::command]
 pub fn close_all(manager: State<'_, PtyManager>) -> Result<()> {
     manager.close_all();
     Ok(())
 }
+

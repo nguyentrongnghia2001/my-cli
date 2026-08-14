@@ -51,6 +51,32 @@ export async function closeAllPanes(): Promise<void> {
   await invoke("close_all");
 }
 
+export interface RecentWorkspaceEntry {
+  path: string;
+  name: string;
+  lastOpened: number;
+}
+
+export interface SavedPaneEntry {
+  title: string;
+  launch: LaunchRequest;
+}
+
+export interface AppStateDto {
+  version: number;
+  lastActiveWorkspace: string | null;
+  recentWorkspaces: RecentWorkspaceEntry[];
+  workspacePanes: Record<string, SavedPaneEntry[]>;
+}
+
+export async function loadAppState(): Promise<AppStateDto> {
+  return await invoke<AppStateDto>("load_app_state");
+}
+
+export async function saveAppState(state: AppStateDto): Promise<void> {
+  await invoke("save_app_state", { state });
+}
+
 export interface PaneBackendEvent {
   type: string;
   paneId: string;
@@ -66,3 +92,4 @@ export async function listenToPaneEvents(callback: (event: PaneBackendEvent) => 
     callback(event.payload);
   });
 }
+

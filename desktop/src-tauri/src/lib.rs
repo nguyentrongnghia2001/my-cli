@@ -5,6 +5,7 @@ pub mod events;
 pub mod launcher;
 pub mod pty_manager;
 pub mod pty_process;
+pub mod state_storage;
 pub mod workspace;
 
 use pty_manager::PtyManager;
@@ -31,8 +32,11 @@ pub fn run() {
             commands::write_pane,
             commands::resize_pane,
             commands::close_pane,
-            commands::close_all
+            commands::close_all,
+            commands::load_app_state,
+            commands::save_app_state
         ])
+
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

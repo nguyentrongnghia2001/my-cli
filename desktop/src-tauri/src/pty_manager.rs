@@ -30,17 +30,19 @@ impl PtyManager {
         rows: u16,
     ) -> Result<()> {
         let mut map = self.processes.lock();
+
+        // Prune dead processes first
+        map.retain(|_, proc| proc.is_alive());
+
+        // If the same pane_id is already present (e.g. restart or retry), terminate and replace
+        if let Some(old_proc) = map.remove(&pane_id) {
+            let _ = old_proc.terminate(300);
+        }
+
         if map.len() >= 4 {
             return Err(DesktopError::PtyCreateFailed(
                 "Đã đạt giới hạn tối đa 4 terminal pane.".to_string(),
             ));
-        }
-
-        if map.contains_key(&pane_id) {
-            return Err(DesktopError::PtyCreateFailed(format!(
-                "Pane ID \"{}\" đã tồn tại.",
-                pane_id
-            )));
         }
 
         let process = PtyProcess::spawn(
@@ -86,18 +88,23 @@ impl PtyManager {
     pub fn close_pane(&self, pane_id: &str, generation: u32) -> Result<()> {
         let proc = {
             let mut map = self.processes.lock();
-            let proc = map
-                .get(pane_id)
-                .ok_or_else(|| DesktopError::StaleGeneration)?;
-            if proc.generation != generation {
-                return Err(DesktopError::StaleGeneration);
+            if let Some(proc) = map.get(pane_id) {
+                if proc.generation != generation {
+                    return Ok(()); // Stale generation or already closed
+                }
+                map.remove(pane_id)
+            } else {
+                None
             }
-            map.remove(pane_id).unwrap()
         };
 
-        // Terminate outside the registry lock to keep lock narrow!
-        proc.terminate(800)
+        if let Some(proc) = proc {
+            // Terminate outside the registry lock to keep lock narrow!
+            let _ = proc.terminate(800);
+        }
+        Ok(())
     }
+
 
     pub fn close_all(&self) {
         let procs: Vec<PtyProcess> = {

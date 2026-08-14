@@ -1,10 +1,21 @@
 <script setup lang="ts">
+import { onMounted } from "vue";
 import { useWorkspace } from "./composables/useWorkspace";
 import EmptyState from "./components/EmptyState.vue";
 import WorkspaceView from "./components/WorkspaceView.vue";
 
-const { state } = useWorkspace();
+const { state, openRecentWorkspace } = useWorkspace();
+
+onMounted(async () => {
+  if (!state.root) {
+    const lastActive = localStorage.getItem("wsedit:last_active_workspace");
+    if (lastActive) {
+      await openRecentWorkspace(lastActive);
+    }
+  }
+});
 </script>
+
 
 <template>
   <div class="app-container">
