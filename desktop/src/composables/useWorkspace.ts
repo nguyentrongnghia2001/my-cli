@@ -10,11 +10,13 @@ import {
   pickWorkspaceDirectory,
   createPane,
   closePane,
+  closeAllPanes,
   loadAppState,
   saveAppState,
   type AppStateDto,
   type SavedPaneEntry,
 } from "../lib/tauri";
+
 
 const RECENT_WORKSPACES_STORAGE_KEY = "wsedit:recent_workspaces";
 const LAST_ACTIVE_WORKSPACE_KEY = "wsedit:last_active_workspace";
@@ -178,11 +180,15 @@ export function useWorkspace() {
   /** Restore saved panes for the given workspace. */
   async function restorePanes(wsPath: string) {
     if (state.panes.length > 0) return;
+    try {
+      await closeAllPanes();
+    } catch {}
     const saved = getSavedPanesForWorkspace(wsPath);
     for (const item of saved) {
       await addPaneWithLaunch(item.launch, item.title);
     }
   }
+
 
   /** Select a workspace directory via native dialog and validate it in Rust. */
   async function selectAndOpenWorkspace(): Promise<boolean> {

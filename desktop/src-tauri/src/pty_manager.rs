@@ -39,11 +39,17 @@ impl PtyManager {
             let _ = old_proc.terminate(300);
         }
 
-        if map.len() >= 4 {
-            return Err(DesktopError::PtyCreateFailed(
-                "Đã đạt giới hạn tối đa 4 terminal pane.".to_string(),
-            ));
+        // If for any reason there are >= 4 processes alive from an orphaned session, terminate the oldest to make room
+        while map.len() >= 4 {
+            if let Some(first_key) = map.keys().next().cloned() {
+                if let Some(old_proc) = map.remove(&first_key) {
+                    let _ = old_proc.terminate(300);
+                }
+            } else {
+                break;
+            }
         }
+
 
         let process = PtyProcess::spawn(
             app_handle,
