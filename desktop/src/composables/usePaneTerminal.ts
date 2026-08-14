@@ -12,17 +12,49 @@ export function usePaneTerminal(
 ) {
   const term = new Terminal({
     cursorBlink: true,
-    fontFamily: 'Consolas, "Courier New", monospace',
-    fontSize: 14,
+    fontFamily: '"JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, "Courier New", monospace',
+    fontSize: 13.5,
+    lineHeight: 1.25,
     theme: {
-      background: "#1e1e1e",
-      foreground: "#ffffff",
+      background: "#0e1117",
+      foreground: "#f0f6fc",
+      cursor: "#58a6ff",
+      cursorAccent: "#0e1117",
+      selectionBackground: "rgba(56, 139, 253, 0.35)",
+      black: "#161b22",
+      red: "#ff7b72",
+      green: "#3fb950",
+      yellow: "#d29922",
+      blue: "#58a6ff",
+      magenta: "#bc8cff",
+      cyan: "#39c5cf",
+      white: "#d0d7de",
+      brightBlack: "#484f58",
+      brightRed: "#ffa198",
+      brightGreen: "#56d364",
+      brightYellow: "#e3b341",
+      brightBlue: "#79c0ff",
+      brightMagenta: "#d2a8ff",
+      brightCyan: "#56d4dd",
+      brightWhite: "#ffffff",
     },
   });
+
 
   const fitAddon = new FitAddon();
   term.loadAddon(fitAddon);
   term.open(container);
+
+  // Allow global window hotkeys (Alt+N, Alt+W, Alt+Z, Alt+1-4) to bubble up
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.altKey && !e.ctrlKey && !e.metaKey) {
+      const key = e.key.toLowerCase();
+      if (key === "n" || key === "w" || key === "z" || (key >= "1" && key <= "4")) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   // Measure dimensions after mount
   fitAddon.fit();

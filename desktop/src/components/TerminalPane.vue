@@ -112,9 +112,7 @@ function handleRestart() {
   display: flex;
   flex-direction: column;
   height: 100%;
-  border: 1px solid var(--border-color);
   background-color: var(--bg-primary);
-  border-radius: 4px;
   overflow: hidden;
   position: relative;
 }
@@ -142,23 +140,24 @@ function handleRestart() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  background-color: rgba(30, 30, 30, 0.85);
-  backdrop-filter: blur(2px);
+  gap: 0.75rem;
+  background-color: rgba(14, 17, 23, 0.88);
+  backdrop-filter: blur(3px);
   color: var(--text-primary);
   z-index: 10;
 }
 
 .status-overlay {
-  font-size: 0.9rem;
+  font-size: 0.825rem;
+  color: var(--text-secondary);
 }
 
 .exited-overlay {
-  border-top: 2px solid var(--border-color);
+  border-top: 1px solid var(--border-default);
 }
 
 .error-overlay {
-  border-top: 2px solid var(--error-color);
+  border-top: 1px solid var(--error-color);
 }
 
 .error-msg {
@@ -166,33 +165,36 @@ function handleRestart() {
   max-width: 80%;
   text-align: center;
   font-family: var(--font-mono);
+  font-size: 0.8rem;
 }
 
 .action-btn {
-  background-color: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 0.4rem 1rem;
-  font-size: 0.85rem;
-  border-radius: 3px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 0.35rem 0.85rem;
+  font-size: 0.775rem;
+  border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.15s ease;
 }
 
 .action-btn:hover {
-  background-color: var(--accent-hover);
+  background-color: var(--accent-color);
+  border-color: var(--accent-hover);
 }
 
 .spinner {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  border-top-color: var(--text-primary);
-  animation: spin 1s ease-in-out infinite;
+  border-top-color: var(--accent-hover);
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 </style>
+

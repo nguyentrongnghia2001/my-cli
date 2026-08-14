@@ -5,7 +5,7 @@ import TerminalPane from "./TerminalPane.vue";
 import { useWorkspace } from "../composables/useWorkspace";
 
 const props = defineProps<{
-  panes: PaneMetadata[];
+  panes: readonly PaneMetadata[];
   focusedPaneId: string | null;
   zoomedPaneId: string | null;
 }>();
@@ -56,7 +56,7 @@ const layoutClass = computed(() => {
   display: grid;
   width: 100%;
   height: 100%;
-  gap: 6px;
+  gap: 4px;
   box-sizing: border-box;
 }
 
@@ -110,17 +110,20 @@ const layoutClass = computed(() => {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  border: 2px solid transparent;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
-  transition: border-color 0.15s ease-in-out;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
   overflow: hidden;
+  background-color: var(--bg-primary);
 }
 
 .pane-wrapper.pane-focused {
-  border-color: var(--accent-color);
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 1px var(--border-focus);
 }
 
 .pane-wrapper.pane-hidden {
   display: none !important;
 }
 </style>
+

@@ -7,7 +7,7 @@ export interface LaunchRequest {
   displayName: string;
   /** Only set for custom commands. */
   command?: string;
-  args?: string[];
+  args?: readonly string[];
 }
 
 /** Pane lifecycle status. */
@@ -50,3 +50,11 @@ export interface ProfileDetection {
   available: boolean;
   resolvedPath?: string;
 }
+
+/** Record of a recently opened workspace directory. */
+export interface RecentWorkspace {
+  path: string;
+  name: string;
+  lastOpened: number;
+}
+
