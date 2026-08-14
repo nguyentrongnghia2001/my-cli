@@ -131,3 +131,32 @@ pub fn detect_launch_profiles() -> Vec<ProfileDetection> {
 
     profiles
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_default_shell() {
+        let shell = resolve_default_shell();
+        assert!(!shell.as_os_str().is_empty());
+    }
+
+    #[test]
+    fn test_detect_launch_profiles() {
+        let profiles = detect_launch_profiles();
+        assert_eq!(profiles.len(), 4);
+        assert_eq!(profiles[0].kind, "shell");
+        assert!(profiles[0].available);
+        assert!(profiles.iter().any(|p| p.kind == "codex"));
+        assert!(profiles.iter().any(|p| p.kind == "claude"));
+        assert!(profiles.iter().any(|p| p.kind == "gemini"));
+    }
+
+    #[test]
+    fn test_find_executable_nonexistent() {
+        let non_existent = find_executable("__non_existent_binary_xyz_12345__");
+        assert!(non_existent.is_none());
+    }
+}
+

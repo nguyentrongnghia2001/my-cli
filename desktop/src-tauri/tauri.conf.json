@@ -19,6 +19,8 @@
         "title": "wsedit",
         "width": 1024,
         "height": 768,
+        "minWidth": 600,
+        "minHeight": 450,
         "resizable": true,
         "fullscreen": false
       }
@@ -33,7 +35,5 @@
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },
-  "plugins": {
-    "dialog": {}
-  }
+  "plugins": {}
 }

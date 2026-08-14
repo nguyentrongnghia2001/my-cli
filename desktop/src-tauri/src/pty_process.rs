@@ -1,5 +1,5 @@
 use parking_lot::Mutex;
-use portable_pty::{native_pty_system, MasterPty, PtyPair, PtySize};
+use portable_pty::{native_pty_system, MasterPty, PtySize};
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -49,7 +49,7 @@ impl PtyProcess {
             .spawn_command(cmd)
             .map_err(|e| DesktopError::SpawnFailed(e.to_string()))?;
 
-        let pid = child.get_process_id();
+        let pid = child.process_id();
         let master = pair.master;
         let reader = master
             .try_clone_reader()

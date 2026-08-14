@@ -1,2 +1,7 @@
 node_modules/
 *.log
+dist/
+target/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+.claude/

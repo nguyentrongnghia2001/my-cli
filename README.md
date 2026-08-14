@@ -2,11 +2,7 @@
 
 CLI nhẹ để **xem** và **sửa** file ngay trong terminal, dùng như một "app" — cài 1 lần, gõ lệnh ở bất kỳ workspace nào.
 
-> Desktop direction: a separate Vue/Tauri terminal-deck application is currently in
-> specification only; no desktop implementation has started. See
-> [`docs/PRODUCT_DIRECTION.md`](docs/PRODUCT_DIRECTION.md) and
-> [`docs/ROADMAP.md`](docs/ROADMAP.md). The CLI/TUI documented below remains the
-> implemented product.
+> **Ứng dụng Desktop**: Một phiên bản giao diện Desktop (Vue 3 + Tauri 2) cung cấp terminal deck đa pane (tối đa 4 pane) để khởi chạy các shell hoặc các CLI AI (Codex, Claude Code, Gemini) một cách độc lập trong cùng một workspace. Xem hướng dẫn cài đặt và build tại [`docs/DESKTOP_BUILD_AND_PACKAGING.md`](docs/DESKTOP_BUILD_AND_PACKAGING.md).
 
 ## Yêu cầu
 

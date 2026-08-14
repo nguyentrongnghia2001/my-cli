@@ -5,7 +5,7 @@ use portable_pty::CommandBuilder;
 use crate::command_detection::{find_executable, resolve_default_shell};
 use crate::error::{DesktopError, Result};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum LaunchKind {
     Shell,
@@ -15,7 +15,7 @@ pub enum LaunchKind {
     Custom,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchRequest {
     pub kind: LaunchKind,
@@ -23,6 +23,7 @@ pub struct LaunchRequest {
     pub command: Option<String>,
     pub args: Option<Vec<String>>,
 }
+
 
 /// Convert a `LaunchRequest` and a working directory into a `CommandBuilder` for `portable-pty`.
 pub fn build_pty_command(request: &LaunchRequest, cwd: &str) -> Result<CommandBuilder> {
@@ -105,3 +106,60 @@ fn create_safe_command(exe_path: &Path, args: &[String]) -> Result<CommandBuilde
     }
     Ok(builder)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_pty_command_shell() {
+        let req = LaunchRequest {
+            kind: LaunchKind::Shell,
+            display_name: "Shell".to_string(),
+            command: None,
+            args: None,
+        };
+        let cwd = std::env::current_dir().unwrap().to_string_lossy().to_string();
+        let cmd = build_pty_command(&req, &cwd);
+        assert!(cmd.is_ok());
+    }
+
+    #[test]
+    fn test_build_pty_command_invalid_cwd() {
+        let req = LaunchRequest {
+            kind: LaunchKind::Shell,
+            display_name: "Shell".to_string(),
+            command: None,
+            args: None,
+        };
+        let res = build_pty_command(&req, "C:\\invalid_non_existent_folder_xyz123");
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_build_pty_command_custom_empty() {
+        let req = LaunchRequest {
+            kind: LaunchKind::Custom,
+            display_name: "Custom".to_string(),
+            command: Some("   ".to_string()),
+            args: None,
+        };
+        let cwd = std::env::current_dir().unwrap().to_string_lossy().to_string();
+        let res = build_pty_command(&req, &cwd);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_build_pty_command_custom_valid() {
+        let req = LaunchRequest {
+            kind: LaunchKind::Custom,
+            display_name: "Custom".to_string(),
+            command: Some("cmd".to_string()),
+            args: Some(vec!["/c".to_string(), "echo test".to_string()]),
+        };
+        let cwd = std::env::current_dir().unwrap().to_string_lossy().to_string();
+        let cmd = build_pty_command(&req, &cwd);
+        assert!(cmd.is_ok());
+    }
+}
+
