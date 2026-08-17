@@ -58,6 +58,10 @@ function loadRecentWorkspaces(): RecentWorkspace[] {
   }
 }
 
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, "/").toLowerCase();
+}
+
 const recentWorkspaces = ref<RecentWorkspace[]>(loadRecentWorkspaces());
 let memoryPanesStorage: Record<string, SavedPaneEntry[]> = {};
 
@@ -72,7 +76,10 @@ async function syncStateFromDisk() {
       }));
     }
     if (diskState.workspacePanes) {
-      memoryPanesStorage = diskState.workspacePanes;
+      memoryPanesStorage = {};
+      for (const [k, v] of Object.entries(diskState.workspacePanes)) {
+        memoryPanesStorage[normalizePath(k)] = v;
+      }
     }
   } catch (err) {
     console.warn("Failed to load state from disk:", err);
@@ -99,7 +106,7 @@ function persistAllToDisk() {
 }
 
 function getSavedPanesForWorkspace(wsPath: string): SavedPaneEntry[] {
-  const key = wsPath.toLowerCase();
+  const key = normalizePath(wsPath);
   if (memoryPanesStorage[key] && memoryPanesStorage[key].length > 0) {
     return memoryPanesStorage[key].slice(0, 4);
   }
@@ -119,7 +126,7 @@ function getSavedPanesForWorkspace(wsPath: string): SavedPaneEntry[] {
 
 function savePanesForWorkspace(wsPath: string, panes: readonly PaneMetadata[]) {
   if (!wsPath) return;
-  const key = wsPath.toLowerCase();
+  const key = normalizePath(wsPath);
   const toSave: SavedPaneEntry[] = panes.map((p) => ({
     title: p.title,
     launch: p.launch,
@@ -169,26 +176,32 @@ function removeRecentWorkspace(pathToRemove: string) {
   recentWorkspaces.value = updated;
   try {
     localStorage.setItem(RECENT_WORKSPACES_STORAGE_KEY, JSON.stringify(updated));
-    localStorage.removeItem(`wsedit:panes:${pathToRemove.toLowerCase()}`);
+    localStorage.removeItem(`wsedit:panes:${normalizePath(pathToRemove)}`);
   } catch {}
-  delete memoryPanesStorage[pathToRemove.toLowerCase()];
+  delete memoryPanesStorage[normalizePath(pathToRemove)];
   persistAllToDisk();
 }
-
 
 export function useWorkspace() {
   /** Restore saved panes for the given workspace. */
   async function restorePanes(wsPath: string) {
-    if (state.panes.length > 0) return;
+    // Terminate any previous backend processes and clear old panes
+    for (const pane of state.panes) {
+      closePane(pane.id, pane.generation).catch(() => {});
+    }
+    state.panes = [];
+    state.focusedPaneId = null;
+    state.zoomedPaneId = null;
+
     try {
       await closeAllPanes();
     } catch {}
+
     const saved = getSavedPanesForWorkspace(wsPath);
     for (const item of saved) {
       await addPaneWithLaunch(item.launch, item.title);
     }
   }
-
 
   /** Select a workspace directory via native dialog and validate it in Rust. */
   async function selectAndOpenWorkspace(): Promise<boolean> {
@@ -199,6 +212,9 @@ export function useWorkspace() {
 
       const result = await validateWorkspace(selectedPath);
       if (result.valid && result.canonicalPath) {
+        if (state.root && state.root.toLowerCase() !== result.canonicalPath.toLowerCase()) {
+          closeWorkspace();
+        }
         state.root = result.canonicalPath;
         recordRecentWorkspace(result.canonicalPath);
         localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, result.canonicalPath);
@@ -209,7 +225,7 @@ export function useWorkspace() {
         return false;
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = formatErrorMessage(err);
       errorMessage.value = `Lỗi mở workspace: ${msg}`;
       return false;
     }
@@ -221,6 +237,9 @@ export function useWorkspace() {
     try {
       const result = await validateWorkspace(path);
       if (result.valid && result.canonicalPath) {
+        if (state.root && state.root.toLowerCase() !== result.canonicalPath.toLowerCase()) {
+          closeWorkspace();
+        }
         state.root = result.canonicalPath;
         recordRecentWorkspace(result.canonicalPath);
         localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, result.canonicalPath);
@@ -231,7 +250,7 @@ export function useWorkspace() {
         return false;
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = formatErrorMessage(err);
       errorMessage.value = `Lỗi mở workspace: ${msg}`;
       return false;
     }
@@ -248,6 +267,9 @@ export function useWorkspace() {
     errorMessage.value = null;
     const result = await validateWorkspace(path);
     if (result.valid && result.canonicalPath) {
+      if (state.root && state.root.toLowerCase() !== result.canonicalPath.toLowerCase()) {
+        closeWorkspace();
+      }
       state.root = result.canonicalPath;
       recordRecentWorkspace(result.canonicalPath);
       localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, result.canonicalPath);
@@ -261,12 +283,15 @@ export function useWorkspace() {
 
   /** Close the current workspace and its panes. */
   function closeWorkspace() {
-    // Attempt to terminate all active backend PTY processes first
     for (const pane of state.panes) {
       closePane(pane.id, pane.generation).catch((err) => {
         console.warn(`Failed to close PTY for pane ${pane.id}:`, err);
       });
     }
+
+    try {
+      closeAllPanes();
+    } catch {}
 
     state.root = null;
     state.panes = [];
@@ -275,7 +300,9 @@ export function useWorkspace() {
     state.isClosing = false;
     errorMessage.value = null;
     localStorage.removeItem(LAST_ACTIVE_WORKSPACE_KEY);
+    persistAllToDisk();
   }
+
 
   /** Add a terminal pane with specific launch request configuration. */
   async function addPaneWithLaunch(launch: LaunchRequest, title: string): Promise<string | null> {
