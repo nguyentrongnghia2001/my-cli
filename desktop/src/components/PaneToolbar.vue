@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, nextTick } from "vue";
 import { useWorkspace } from "../composables/useWorkspace";
 import type { PaneMetadata } from "../types/desktop";
 
@@ -8,19 +9,81 @@ const props = defineProps<{
   isZoomed: boolean;
 }>();
 
-const { restartPane, closePaneById, toggleZoom } = useWorkspace();
+const { restartPane, closePaneById, toggleZoom, renamePane } = useWorkspace();
+
+const isEditing = ref(false);
+const editTitle = ref(props.pane.title);
+const inputRef = ref<HTMLInputElement | null>(null);
+
+function startRename() {
+  editTitle.value = props.pane.title;
+  isEditing.value = true;
+  nextTick(() => {
+    inputRef.value?.focus();
+    inputRef.value?.select();
+  });
+}
+
+function finishRename() {
+  if (isEditing.value) {
+    const trimmed = editTitle.value.trim();
+    if (trimmed) {
+      renamePane(props.pane.id, trimmed);
+    }
+    isEditing.value = false;
+  }
+}
+
+function cancelRename() {
+  isEditing.value = false;
+}
 </script>
 
 <template>
   <div class="pane-toolbar" :class="{ 'toolbar-focused': isFocused }">
     <div class="toolbar-left">
       <span class="status-indicator" :class="pane.status" :title="`Trạng thái: ${pane.status}`"></span>
-      <span class="pane-title">{{ pane.title }}</span>
+      
+      <!-- Title Display & Inline Rename -->
+      <div
+        v-if="!isEditing"
+        class="title-group"
+        title="Nhấp đúp để đổi tên"
+        @dblclick.stop="startRename"
+      >
+        <span class="pane-title">{{ pane.title }}</span>
+        <button
+          class="edit-title-btn"
+          title="Đổi tên terminal"
+          aria-label="Đổi tên terminal"
+          @click.stop="startRename"
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+        </button>
+      </div>
+
+      <input
+        v-else
+        ref="inputRef"
+        v-model="editTitle"
+        class="rename-input"
+        type="text"
+        maxlength="30"
+        @keydown.enter.stop="finishRename"
+        @keydown.esc.stop="cancelRename"
+        @blur="finishRename"
+        @click.stop
+      />
+
       <span class="pane-gen">#{{ pane.generation }}</span>
       <span v-if="pane.status !== 'running'" class="status-label" :class="pane.status">
         {{ pane.status }}
       </span>
     </div>
+
 
     <div class="toolbar-right">
       <button
@@ -121,6 +184,21 @@ const { restartPane, closePaneById, toggleZoom } = useWorkspace();
   background-color: var(--text-dim);
 }
 
+.title-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 3px;
+  margin: -1px -3px;
+  transition: background-color 0.12s ease;
+}
+
+.title-group:hover {
+  background-color: var(--bg-surface-hover);
+}
+
 .pane-title {
   font-size: 0.775rem;
   font-weight: 500;
@@ -131,6 +209,46 @@ const { restartPane, closePaneById, toggleZoom } = useWorkspace();
 .toolbar-focused .pane-title {
   color: var(--text-primary);
 }
+
+.edit-title-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 2px;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.title-group:hover .edit-title-btn {
+  opacity: 1;
+}
+
+.edit-title-btn:hover {
+  color: var(--accent-hover);
+}
+
+.rename-input {
+  font-size: 0.775rem;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-focus);
+  border-radius: 3px;
+  padding: 0 4px;
+  height: 19px;
+  width: 110px;
+  outline: none;
+  box-shadow: 0 0 0 1px var(--border-focus);
+}
+
 
 .pane-gen {
   font-size: 0.65rem;

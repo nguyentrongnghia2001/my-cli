@@ -465,6 +465,18 @@ export function useWorkspace() {
   }
 
 
+  function renamePane(paneId: string, newTitle: string) {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    const pane = state.panes.find((p) => p.id === paneId);
+    if (pane) {
+      pane.title = trimmed;
+      if (state.root) {
+        savePanesForWorkspace(state.root, state.panes);
+      }
+    }
+  }
+
   function getErrorMessage(): string | null {
     return errorMessage.value;
   }
@@ -492,8 +504,10 @@ export function useWorkspace() {
     updatePaneError,
     restartPane,
     closePaneById,
+    renamePane,
     getErrorMessage,
     clearErrorMessage,
   };
 }
+
 
