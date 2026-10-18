@@ -2,6 +2,7 @@
 import { ref, nextTick } from "vue";
 import { useWorkspace } from "../composables/useWorkspace";
 import type { PaneMetadata } from "../types/desktop";
+import ConfirmModal from "./ConfirmModal.vue";
 
 const props = defineProps<{
   pane: PaneMetadata;
@@ -14,6 +15,7 @@ const { restartPane, closePaneById, toggleZoom, renamePane } = useWorkspace();
 const isEditing = ref(false);
 const editTitle = ref(props.pane.title);
 const inputRef = ref<HTMLInputElement | null>(null);
+const isConfirmOpen = ref(false);
 
 function startRename() {
   editTitle.value = props.pane.title;
@@ -36,6 +38,23 @@ function finishRename() {
 
 function cancelRename() {
   isEditing.value = false;
+}
+
+function handleCloseClick() {
+  if (props.pane.status === "running") {
+    isConfirmOpen.value = true;
+  } else {
+    closePaneById(props.pane.id);
+  }
+}
+
+function confirmClose() {
+  isConfirmOpen.value = false;
+  closePaneById(props.pane.id);
+}
+
+function cancelClose() {
+  isConfirmOpen.value = false;
 }
 </script>
 
@@ -123,13 +142,24 @@ function cancelRename() {
         class="icon-btn close-btn"
         title="Đóng terminal (Alt+W)"
         aria-label="Đóng terminal (Alt+W)"
-        @click.stop="closePaneById(pane.id)"
+        @click.stop="handleCloseClick"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
       </button>
+
+      <ConfirmModal
+        :is-open="isConfirmOpen"
+        title="Đóng terminal đang chạy?"
+        :message="`Tiến trình '${pane.title}' vẫn đang chạy. Đóng pane sẽ chấm dứt tiến trình này.`"
+        confirm-text="Đóng tiến trình"
+        cancel-text="Hủy bỏ"
+        :is-danger="true"
+        @confirm="confirmClose"
+        @cancel="cancelClose"
+      />
     </div>
   </div>
 </template>

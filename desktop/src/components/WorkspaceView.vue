@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useWorkspace } from "../composables/useWorkspace";
+import type { LaunchRequest } from "../types/desktop";
 import PaneGrid from "./PaneGrid.vue";
+import LauncherDialog from "./LauncherDialog.vue";
+import ConfirmModal from "./ConfirmModal.vue";
 
 const {
   state,
   recentWorkspaces,
-  addShellPane,
+  addPaneWithLaunch,
   selectAndOpenWorkspace,
   switchWorkspace,
   removeRecentWorkspace,
@@ -17,6 +20,9 @@ const {
 } = useWorkspace();
 
 const isWorkspaceMenuOpen = ref(false);
+const isLauncherOpen = ref(false);
+const isConfirmCloseOpen = ref(false);
+const paneToClose = ref<{ id: string; title: string } | null>(null);
 
 const workspaceName = computed(() => {
   if (!state.root) return "";
@@ -25,8 +31,38 @@ const workspaceName = computed(() => {
 
 function handleAddTerminal() {
   if (state.panes.length < 4) {
-    addShellPane();
+    isLauncherOpen.value = true;
   }
+}
+
+async function handleLaunchPane(payload: { launch: LaunchRequest; title: string }) {
+  await addPaneWithLaunch(payload.launch, payload.title);
+}
+
+function requestCloseFocusedPane() {
+  if (!state.focusedPaneId) return;
+  const pane = state.panes.find((p) => p.id === state.focusedPaneId);
+  if (!pane) return;
+
+  if (pane.status === "running") {
+    paneToClose.value = { id: pane.id, title: pane.title };
+    isConfirmCloseOpen.value = true;
+  } else {
+    closePaneById(pane.id);
+  }
+}
+
+function confirmCloseFocusedPane() {
+  if (paneToClose.value) {
+    closePaneById(paneToClose.value.id);
+    paneToClose.value = null;
+  }
+  isConfirmCloseOpen.value = false;
+}
+
+function cancelCloseFocusedPane() {
+  paneToClose.value = null;
+  isConfirmCloseOpen.value = false;
 }
 
 function toggleWorkspaceMenu() {
@@ -49,6 +85,11 @@ async function handleOpenOtherWorkspace() {
 }
 
 function handleGlobalKeydown(e: KeyboardEvent) {
+  if (isLauncherOpen.value || isConfirmCloseOpen.value) {
+    // Let active modals handle Escape and Enter
+    return;
+  }
+
   if (e.key === "Escape" && isWorkspaceMenuOpen.value) {
     closeWorkspaceMenu();
     return;
@@ -64,9 +105,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
     handleAddTerminal();
   } else if (key === "w") {
     e.preventDefault();
-    if (state.focusedPaneId) {
-      closePaneById(state.focusedPaneId);
-    }
+    requestCloseFocusedPane();
   } else if (key === "z") {
     e.preventDefault();
     if (state.focusedPaneId) {
@@ -231,6 +270,25 @@ onUnmounted(() => {
         />
       </div>
     </main>
+
+    <!-- Dialogs -->
+    <LauncherDialog
+      :is-open="isLauncherOpen"
+      :pane-count="state.panes.length"
+      @close="isLauncherOpen = false"
+      @launch="handleLaunchPane"
+    />
+
+    <ConfirmModal
+      :is-open="isConfirmCloseOpen"
+      title="Đóng terminal đang chạy?"
+      :message="`Tiến trình '${paneToClose?.title || ''}' vẫn đang chạy. Đóng pane sẽ chấm dứt tiến trình này.`"
+      confirm-text="Đóng tiến trình"
+      cancel-text="Hủy bỏ"
+      :is-danger="true"
+      @confirm="confirmCloseFocusedPane"
+      @cancel="cancelCloseFocusedPane"
+    />
   </div>
 </template>
 
