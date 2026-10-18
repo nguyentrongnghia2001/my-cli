@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted } from "vue";
 import { useWorkspace } from "../composables/useWorkspace";
 
 const {
@@ -8,6 +9,21 @@ const {
   removeRecentWorkspace,
   getErrorMessage,
 } = useWorkspace();
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.ctrlKey && e.key.toLowerCase() === "o") {
+    e.preventDefault();
+    selectAndOpenWorkspace();
+  }
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeydown);
+});
 
 function formatTime(timestamp: number): string {
   const diff = Date.now() - timestamp;

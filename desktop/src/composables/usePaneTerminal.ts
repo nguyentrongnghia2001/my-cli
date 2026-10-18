@@ -97,8 +97,10 @@ export function usePaneTerminal(
 
   // Listen to PTY events
   let unlistenFn: (() => void) | null = null;
+  let isDisposed = false;
 
   listenToPaneEvents((event: PaneBackendEvent) => {
+    if (isDisposed) return;
     if (event.paneId !== paneId || event.generation !== generation) {
       return;
     }
@@ -115,7 +117,11 @@ export function usePaneTerminal(
       }
     }
   }).then((unlisten) => {
-    unlistenFn = unlisten;
+    if (isDisposed) {
+      unlisten();
+    } else {
+      unlistenFn = unlisten;
+    }
   });
 
   function focus() {
@@ -123,6 +129,7 @@ export function usePaneTerminal(
   }
 
   function dispose() {
+    isDisposed = true;
     if (resizeTimer !== null) {
       window.clearTimeout(resizeTimer);
     }

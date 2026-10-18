@@ -1,30 +1,23 @@
 {
   "name": "wsedit",
-  "version": "1.0.0",
-  "description": "CLI nhe de xem va sua file ngay trong workspace",
-  "main": "bin/wsedit.js",
-  "bin": {
-    "wsedit": "./bin/wsedit.js"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
+  "version": "0.1.0",
+  "description": "wsedit - Lightweight Windows Desktop Terminal Deck (Tauri 2 + Rust + Vue 3)",
+  "private": true,
   "scripts": {
-    "test": "node --test test/fuzzy.test.js test/layout.test.js test/quick-open.test.js test/shell.test.js test/smoke-ui.test.js test/tab-bar.test.js test/text-buffer.test.js test/verify-contracts.test.js test/verify-explorer.test.js test/verify-ui.test.js",
-    "test:pty": "node --test test/terminal-lifecycle.test.js",
-    "test:all": "node --test"
+    "dev": "npm --prefix desktop run dev",
+    "build": "npm --prefix desktop run build",
+    "typecheck": "npm --prefix desktop run typecheck",
+    "tauri": "npm --prefix desktop run tauri",
+    "tauri:dev": "npm --prefix desktop run tauri dev",
+    "tauri:build": "npm --prefix desktop run tauri build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "blessed": "^0.1.81",
-    "chalk": "^4.1.2",
-    "cli-highlight": "^2.1.11",
-    "commander": "^15.0.0"
-  },
-  "optionalDependencies": {
-    "blessed-xterm": "^1.6.0",
-    "node-pty": "^1.2.0-beta.14"
-  }
+  "keywords": [
+    "tauri",
+    "terminal",
+    "deck",
+    "vue3",
+    "rust"
+  ],
+  "author": "DTSMART",
+  "license": "ISC"
 }

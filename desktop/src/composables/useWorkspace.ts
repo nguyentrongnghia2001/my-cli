@@ -282,16 +282,13 @@ export function useWorkspace() {
   }
 
   /** Close the current workspace and its panes. */
-  function closeWorkspace() {
-    for (const pane of state.panes) {
-      closePane(pane.id, pane.generation).catch((err) => {
-        console.warn(`Failed to close PTY for pane ${pane.id}:`, err);
-      });
-    }
-
+  async function closeWorkspace() {
+    state.isClosing = true;
     try {
-      closeAllPanes();
-    } catch {}
+      await closeAllPanes();
+    } catch (err) {
+      console.warn("Failed to close all panes on backend:", err);
+    }
 
     state.root = null;
     state.panes = [];

@@ -166,8 +166,6 @@ impl PtyProcess {
     }
 
     pub fn terminate(&self, grace_period_ms: u64) -> Result<()> {
-        self.is_alive.store(false, Ordering::Relaxed);
-
         // Send graceful exit string first (Ctrl+C then exit)
         let _ = self.write(b"\x03exit\r");
 
@@ -189,6 +187,7 @@ impl PtyProcess {
             }
         }
 
+        self.is_alive.store(false, Ordering::Relaxed);
         Ok(())
     }
 }

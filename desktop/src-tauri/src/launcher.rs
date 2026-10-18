@@ -88,7 +88,7 @@ fn create_safe_command(exe_path: &Path, args: &[String]) -> Result<CommandBuilde
         if let Some(ext) = exe_path.extension() {
             let ext_str = ext.to_string_lossy().to_lowercase();
             if ext_str == "cmd" || ext_str == "bat" {
-                let cmd_exe = resolve_default_shell();
+                let cmd_exe = find_executable("cmd").unwrap_or_else(|| PathBuf::from("cmd.exe"));
                 let mut builder = CommandBuilder::new(cmd_exe);
                 builder.arg("/c");
                 builder.arg(exe_path.to_string_lossy().to_string());
