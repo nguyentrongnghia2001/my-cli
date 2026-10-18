@@ -4699,7 +4699,6 @@ dependencies = [
 name = "wsedit"
 version = "0.1.0"
 dependencies = [
- "lazy_static",
  "parking_lot",
  "portable-pty",
  "serde",

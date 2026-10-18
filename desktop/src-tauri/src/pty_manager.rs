@@ -39,8 +39,8 @@ impl PtyManager {
             let _ = old_proc.terminate(300);
         }
 
-        // If for any reason there are >= 4 processes alive from an orphaned session, terminate the oldest to make room
-        while map.len() >= 4 {
+        // Cap total concurrent PTY processes across all active workspace sessions to 16
+        while map.len() >= 16 {
             if let Some(first_key) = map.keys().next().cloned() {
                 if let Some(old_proc) = map.remove(&first_key) {
                     let _ = old_proc.terminate(300);

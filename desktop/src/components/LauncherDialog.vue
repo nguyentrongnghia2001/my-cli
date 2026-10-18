@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
-import { detectProfiles } from "../lib/tauri";
+import { detectProfiles, pickWorkspaceDirectory } from "../lib/tauri";
 import type { LaunchProfileKind, LaunchRequest, ProfileDetection } from "../types/desktop";
 
 const props = defineProps<{
   isOpen: boolean;
   paneCount: number;
+  defaultCwd?: string;
 }>();
 
 const emit = defineEmits<{
@@ -70,11 +71,23 @@ const defaultProfiles: ProfileOption[] = [
 const profiles = ref<ProfileOption[]>([...defaultProfiles]);
 const selectedIndex = ref<number>(0);
 const isLoading = ref<boolean>(false);
+const customCwd = ref<string>("");
 
 // Custom command fields
 const customCommand = ref<string>("");
 const customArgs = ref<string>("");
 const customCommandInputRef = ref<HTMLInputElement | null>(null);
+
+async function browseCustomCwd() {
+  try {
+    const picked = await pickWorkspaceDirectory();
+    if (picked) {
+      customCwd.value = picked;
+    }
+  } catch (err) {
+    console.warn("Không thể mở hộp thoại chọn thư mục:", err);
+  }
+}
 
 async function refreshProfileDetection() {
   isLoading.value = true;
@@ -106,6 +119,7 @@ watch(
       selectedIndex.value = 0;
       customCommand.value = "";
       customArgs.value = "";
+      customCwd.value = props.defaultCwd || "";
       refreshProfileDetection();
     }
   }
@@ -141,12 +155,15 @@ function handleLaunch() {
 
     const title = rawCmd.split(/[/\\]/).pop() || `Custom ${paneNumber}`;
 
+    const effectiveCwd = customCwd.value.trim() || undefined;
+
     emit("launch", {
       launch: {
         kind: "custom",
         displayName: rawCmd,
         command: rawCmd,
         args,
+        cwd: effectiveCwd,
       },
       title,
     });
@@ -159,10 +176,13 @@ function handleLaunch() {
     title = `Terminal ${paneNumber}`;
   }
 
+  const effectiveCwd = customCwd.value.trim() || undefined;
+
   emit("launch", {
     launch: {
       kind: profile.kind,
       displayName: profile.displayName,
+      cwd: effectiveCwd,
     },
     title,
   });
@@ -344,6 +364,22 @@ onUnmounted(() => {
               @keydown.enter.stop="handleLaunch"
             />
           </div>
+        </div>
+
+        <!-- Working Directory Selector -->
+        <div class="cwd-selector-bar">
+          <div class="cwd-info">
+            <span class="cwd-label">Thư mục chạy:</span>
+            <span class="cwd-value" :title="customCwd || defaultCwd || 'Mặc định theo workspace'">
+              {{ customCwd || defaultCwd || "Mặc định theo workspace" }}
+            </span>
+          </div>
+          <button class="cwd-browse-btn" type="button" title="Chọn thư mục chạy khác cho pane này" @click="browseCustomCwd">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Đổi thư mục...</span>
+          </button>
         </div>
 
         <!-- Footer -->
@@ -659,5 +695,61 @@ onUnmounted(() => {
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.cwd-selector-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 14px;
+}
+
+.cwd-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.cwd-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.cwd-value {
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cwd-browse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.cwd-browse-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-color);
 }
 </style>

@@ -8,6 +8,7 @@ import ConfirmModal from "./ConfirmModal.vue";
 
 const {
   state,
+  activeSession,
   recentWorkspaces,
   addPaneWithLaunch,
   selectAndOpenWorkspace,
@@ -19,18 +20,25 @@ const {
   closePaneById,
 } = useWorkspace();
 
-const isWorkspaceMenuOpen = ref(false);
+const isRecentMenuOpen = ref(false);
 const isLauncherOpen = ref(false);
-const isConfirmCloseOpen = ref(false);
+
+// Confirm close pane state
+const isConfirmClosePaneOpen = ref(false);
 const paneToClose = ref<{ id: string; title: string } | null>(null);
 
-const workspaceName = computed(() => {
-  if (!state.root) return "";
-  return state.root.split(/[/\\]/).filter(Boolean).pop() || state.root;
+// Confirm close workspace state
+const isConfirmCloseWorkspaceOpen = ref(false);
+const workspaceToClose = ref<{ root: string; name: string } | null>(null);
+
+const activeWorkspaceName = computed(() => {
+  if (!state.activeRoot) return "";
+  return state.activeRoot.split(/[/\\]/).filter(Boolean).pop() || state.activeRoot;
 });
 
 function handleAddTerminal() {
-  if (state.panes.length < 4) {
+  const currentCount = activeSession.value?.panes.length || 0;
+  if (currentCount < 4) {
     isLauncherOpen.value = true;
   }
 }
@@ -46,7 +54,7 @@ function requestCloseFocusedPane() {
 
   if (pane.status === "running") {
     paneToClose.value = { id: pane.id, title: pane.title };
-    isConfirmCloseOpen.value = true;
+    isConfirmClosePaneOpen.value = true;
   } else {
     closePaneById(pane.id);
   }
@@ -57,41 +65,73 @@ function confirmCloseFocusedPane() {
     closePaneById(paneToClose.value.id);
     paneToClose.value = null;
   }
-  isConfirmCloseOpen.value = false;
+  isConfirmClosePaneOpen.value = false;
 }
 
 function cancelCloseFocusedPane() {
   paneToClose.value = null;
-  isConfirmCloseOpen.value = false;
+  isConfirmClosePaneOpen.value = false;
 }
 
-function toggleWorkspaceMenu() {
-  isWorkspaceMenuOpen.value = !isWorkspaceMenuOpen.value;
+function requestCloseWorkspaceTab(rootPath: string) {
+  const session = state.sessions.find((s) => s.root.toLowerCase() === rootPath.toLowerCase());
+  if (!session) return;
+
+  const hasRunningPane = session.panes.some((p) => p.status === "running");
+  if (hasRunningPane) {
+    workspaceToClose.value = { root: session.root, name: session.name };
+    isConfirmCloseWorkspaceOpen.value = true;
+  } else {
+    closeWorkspace(rootPath);
+  }
 }
 
-function closeWorkspaceMenu() {
-  isWorkspaceMenuOpen.value = false;
+function confirmCloseWorkspace() {
+  if (workspaceToClose.value) {
+    closeWorkspace(workspaceToClose.value.root);
+    workspaceToClose.value = null;
+  }
+  isConfirmCloseWorkspaceOpen.value = false;
+}
+
+function cancelCloseWorkspace() {
+  workspaceToClose.value = null;
+  isConfirmCloseWorkspaceOpen.value = false;
+}
+
+function toggleRecentMenu() {
+  isRecentMenuOpen.value = !isRecentMenuOpen.value;
+}
+
+function closeRecentMenu() {
+  isRecentMenuOpen.value = false;
 }
 
 async function handleSwitchWorkspace(path: string) {
-  closeWorkspaceMenu();
-  if (state.root?.toLowerCase() === path.toLowerCase()) return;
+  closeRecentMenu();
+  if (state.activeRoot?.toLowerCase() === path.toLowerCase()) return;
   await switchWorkspace(path);
 }
 
 async function handleOpenOtherWorkspace() {
-  closeWorkspaceMenu();
+  closeRecentMenu();
   await selectAndOpenWorkspace();
 }
 
 function handleGlobalKeydown(e: KeyboardEvent) {
-  if (isLauncherOpen.value || isConfirmCloseOpen.value) {
-    // Let active modals handle Escape and Enter
+  if (isLauncherOpen.value || isConfirmClosePaneOpen.value || isConfirmCloseWorkspaceOpen.value) {
     return;
   }
 
-  if (e.key === "Escape" && isWorkspaceMenuOpen.value) {
-    closeWorkspaceMenu();
+  if (e.key === "Escape" && isRecentMenuOpen.value) {
+    closeRecentMenu();
+    return;
+  }
+
+  // Ctrl+O opens directory picker
+  if (e.ctrlKey && e.key.toLowerCase() === "o") {
+    e.preventDefault();
+    selectAndOpenWorkspace();
     return;
   }
 
@@ -122,8 +162,8 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 
 function handleDocumentClick(e: MouseEvent) {
   const target = e.target as HTMLElement | null;
-  if (isWorkspaceMenuOpen.value && target && !target.closest(".workspace-menu-wrap")) {
-    closeWorkspaceMenu();
+  if (isRecentMenuOpen.value && target && !target.closest(".recent-menu-wrap")) {
+    closeRecentMenu();
   }
 }
 
@@ -140,96 +180,113 @@ onUnmounted(() => {
 
 <template>
   <div class="workspace-deck">
-    <!-- Top Deck Header Bar -->
+    <!-- Top Deck Header Bar with Multi-Workspace Tabs -->
     <header class="deck-bar">
-      <!-- Workspace Switcher Selector -->
-      <div class="workspace-menu-wrap">
-        <button
-          class="ws-trigger"
-          :class="{ active: isWorkspaceMenuOpen }"
-          title="Chuyển đổi workspace"
-          aria-label="Chuyển đổi workspace"
-          @click="toggleWorkspaceMenu"
-        >
-          <svg class="ws-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-          </svg>
-          <span class="ws-name">{{ workspaceName }}</span>
-          <span class="ws-full-path">{{ state.root }}</span>
-          <svg class="chevron-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-
-        <!-- Dropdown Popover -->
-        <div v-if="isWorkspaceMenuOpen" class="ws-popover">
-          <div class="popover-heading">
-            <span>Danh sách Workspace</span>
-          </div>
-
-          <div class="popover-list">
-            <div
-              v-for="ws in recentWorkspaces"
-              :key="ws.path"
-              class="popover-item"
-              :class="{ current: state.root?.toLowerCase() === ws.path.toLowerCase() }"
-              :title="ws.path"
-              @click="handleSwitchWorkspace(ws.path)"
+      <!-- Workspace Tabs -->
+      <div class="workspace-tabs-area">
+        <div class="workspace-tabs">
+          <div
+            v-for="session in state.sessions"
+            :key="session.root"
+            class="ws-tab"
+            :class="{ active: session.root.toLowerCase() === state.activeRoot?.toLowerCase() }"
+            :title="session.root"
+            @click="handleSwitchWorkspace(session.root)"
+          >
+            <svg class="ws-tab-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span class="ws-tab-name">{{ session.name }}</span>
+            <span v-if="session.panes.length > 0" class="ws-tab-badge" :title="`${session.panes.length} terminal`">
+              {{ session.panes.length }}
+            </span>
+            <button
+              class="ws-tab-close"
+              title="Đóng workspace này"
+              aria-label="Đóng workspace này"
+              @click.stop="requestCloseWorkspaceTab(session.root)"
             >
-              <div class="item-check">
-                <svg v-if="state.root?.toLowerCase() === ws.path.toLowerCase()" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              </div>
-              <div class="item-details">
-                <div class="item-title">{{ ws.name }}</div>
-                <div class="item-sub">{{ ws.path }}</div>
-              </div>
-              <button
-                v-if="state.root?.toLowerCase() !== ws.path.toLowerCase()"
-                class="item-del"
-                title="Xoá khỏi danh sách"
-                @click.stop="removeRecentWorkspace(ws.path)"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div class="popover-divider"></div>
-
-          <div class="popover-actions">
-            <button class="popover-action-btn" @click="handleOpenOtherWorkspace">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
-              <span>Mở thư mục khác...</span>
-            </button>
-            <button class="popover-action-btn danger" @click="closeWorkspace">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-              <span>Đóng Workspace</span>
             </button>
           </div>
         </div>
+
+        <!-- Add Workspace Tab Button -->
+        <button
+          class="add-ws-btn"
+          title="Mở thêm Workspace khác... (Ctrl+O)"
+          aria-label="Mở thêm Workspace khác"
+          @click="selectAndOpenWorkspace"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Workspace</span>
+        </button>
       </div>
 
-      <!-- Right Deck Actions -->
+      <!-- Right Deck Controls -->
       <div class="deck-controls">
-        <span class="panes-counter" :title="`Đang mở ${state.panes.length} trên 4 panes`">
-          {{ state.panes.length }}/4 Panes
+        <!-- Quick Recent Workspaces Dropdown -->
+        <div class="recent-menu-wrap">
+          <button
+            class="recent-trigger"
+            :class="{ active: isRecentMenuOpen }"
+            title="Danh sách workspace gần đây"
+            aria-label="Danh sách workspace gần đây"
+            @click="toggleRecentMenu"
+          >
+            <span class="recent-trigger-text">{{ activeWorkspaceName }}</span>
+            <svg class="chevron-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <!-- Dropdown Popover -->
+          <div v-if="isRecentMenuOpen" class="recent-popover">
+            <div class="popover-heading">Workspace gần đây</div>
+            <div class="popover-list">
+              <div
+                v-for="ws in recentWorkspaces"
+                :key="ws.path"
+                class="popover-item"
+                :class="{ current: ws.path.toLowerCase() === state.activeRoot?.toLowerCase() }"
+                @click="handleSwitchWorkspace(ws.path)"
+              >
+                <div class="item-name">{{ ws.name }}</div>
+                <div class="item-path">{{ ws.path }}</div>
+                <button
+                  class="item-del-btn"
+                  title="Xoá khỏi danh sách gần đây"
+                  @click.stop="removeRecentWorkspace(ws.path)"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="popover-footer">
+              <button class="popover-action-btn" @click="handleOpenOtherWorkspace">
+                Mở thư mục khác... (Ctrl+O)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <span class="panes-counter" :title="`Đang mở ${activeSession?.panes.length || 0} trên 4 panes trong workspace này`">
+          {{ activeSession?.panes.length || 0 }}/4 Panes
         </span>
 
         <button
           class="add-terminal-btn"
-          :disabled="state.panes.length >= 4"
-          :title="state.panes.length >= 4 ? 'Đã đạt giới hạn tối đa 4 terminal' : 'Thêm Terminal (Alt+N)'"
+          :disabled="(activeSession?.panes.length || 0) >= 4"
+          :title="(activeSession?.panes.length || 0) >= 4 ? 'Đã đạt giới hạn tối đa 4 terminal cho workspace này' : 'Thêm Terminal (Alt+N)'"
           aria-label="Thêm Terminal (Alt+N)"
           @click="handleAddTerminal"
         >
@@ -243,44 +300,57 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <!-- Main Deck Panes Area -->
+    <!-- Main Deck Panes Area: Background Sessions Preserved via v-show -->
     <main class="deck-body">
-      <div v-if="state.panes.length === 0" class="empty-deck-notice">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="notice-svg">
-          <rect x="2" y="4" width="20" height="16" rx="3"></rect>
-          <path d="m7 9 3 3-3 3"></path>
-          <path d="M12 15h5"></path>
-        </svg>
-        <p class="notice-text">Workspace đã sẵn sàng. Chưa có terminal nào đang chạy.</p>
-        <button class="primary-notice-btn" aria-label="Mở Terminal (Alt+N)" @click="handleAddTerminal">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
+      <div
+        v-for="session in state.sessions"
+        :key="session.root"
+        v-show="session.root.toLowerCase() === state.activeRoot?.toLowerCase()"
+        class="session-view-wrapper"
+      >
+        <!-- Notice if this workspace has 0 panes -->
+        <div v-if="session.panes.length === 0" class="empty-deck-notice">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="notice-svg">
+            <rect x="2" y="4" width="20" height="16" rx="3"></rect>
+            <path d="m7 9 3 3-3 3"></path>
+            <path d="M12 15h5"></path>
           </svg>
-          <span>Mở Terminal</span>
-          <kbd>Alt+N</kbd>
-        </button>
-      </div>
+          <p class="notice-text">
+            Workspace <strong>{{ session.name }}</strong> đã sẵn sàng. Chưa có terminal nào đang chạy.
+          </p>
+          <button class="primary-notice-btn" aria-label="Mở Terminal (Alt+N)" @click="handleAddTerminal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>Mở Terminal</span>
+            <kbd>Alt+N</kbd>
+          </button>
+        </div>
 
-      <div v-else class="panes-container">
-        <PaneGrid
-          :panes="state.panes"
-          :focused-pane-id="state.focusedPaneId"
-          :zoomed-pane-id="state.zoomedPaneId"
-        />
+        <!-- Render Panes Grid for this session -->
+        <div v-else class="panes-container">
+          <PaneGrid
+            :panes="session.panes"
+            :focused-pane-id="session.focusedPaneId"
+            :zoomed-pane-id="session.zoomedPaneId"
+          />
+        </div>
       </div>
     </main>
 
     <!-- Dialogs -->
     <LauncherDialog
       :is-open="isLauncherOpen"
-      :pane-count="state.panes.length"
+      :pane-count="activeSession?.panes.length || 0"
+      :default-cwd="state.activeRoot || undefined"
       @close="isLauncherOpen = false"
       @launch="handleLaunchPane"
     />
 
+    <!-- Confirm Close Running Pane -->
     <ConfirmModal
-      :is-open="isConfirmCloseOpen"
+      :is-open="isConfirmClosePaneOpen"
       title="Đóng terminal đang chạy?"
       :message="`Tiến trình '${paneToClose?.title || ''}' vẫn đang chạy. Đóng pane sẽ chấm dứt tiến trình này.`"
       confirm-text="Đóng tiến trình"
@@ -288,6 +358,18 @@ onUnmounted(() => {
       :is-danger="true"
       @confirm="confirmCloseFocusedPane"
       @cancel="cancelCloseFocusedPane"
+    />
+
+    <!-- Confirm Close Running Workspace -->
+    <ConfirmModal
+      :is-open="isConfirmCloseWorkspaceOpen"
+      title="Đóng workspace đang chạy?"
+      :message="`Workspace '${workspaceToClose?.name || ''}' có terminal vẫn đang thực thi lệnh. Đóng workspace sẽ kết thúc các tiến trình này.`"
+      confirm-text="Đóng toàn bộ"
+      cancel-text="Hủy bỏ"
+      :is-danger="true"
+      @confirm="confirmCloseWorkspace"
+      @cancel="cancelCloseWorkspace"
     />
   </div>
 </template>
@@ -304,58 +386,158 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 36px;
-  padding: 0 0.75rem;
+  height: 38px;
+  padding: 0 0.5rem;
   background-color: var(--bg-primary);
   border-bottom: 1px solid var(--border-subtle);
   position: relative;
   z-index: 50;
+  user-select: none;
 }
 
-.workspace-menu-wrap {
-  position: relative;
-  max-width: 65%;
-}
-
-.ws-trigger {
+.workspace-tabs-area {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background-color: var(--bg-secondary);
+  gap: 6px;
+  max-width: 65%;
+  overflow-x: auto;
+}
+
+.workspace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ws-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  padding: 0.25rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
   cursor: pointer;
-  max-width: 100%;
   transition: all 0.12s ease;
+  white-space: nowrap;
+  max-width: 180px;
 }
 
-.ws-trigger:hover,
-.ws-trigger.active {
-  background-color: var(--bg-tertiary);
-  border-color: var(--border-default);
+.ws-tab:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
-.ws-icon {
+.ws-tab.active {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+  font-weight: 500;
+  box-shadow: 0 0 0 1px var(--accent-light);
+}
+
+.ws-tab-icon {
   color: var(--text-muted);
   flex-shrink: 0;
 }
 
-.ws-name {
-  font-weight: 600;
-  color: var(--text-primary);
+.ws-tab.active .ws-tab-icon {
+  color: var(--accent-hover);
+}
+
+.ws-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ws-full-path {
+.ws-tab-badge {
+  font-size: 10px;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 1px 5px;
   font-family: var(--font-mono);
-  color: var(--text-dim);
-  font-size: 0.72rem;
+}
+
+.ws-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-left: 2px;
+  transition: all 0.12s ease;
+}
+
+.ws-tab-close:hover {
+  background: var(--error-bg);
+  color: var(--error-color);
+}
+
+.add-ws-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px dashed var(--border-default);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
   white-space: nowrap;
+}
+
+.add-ws-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.deck-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.recent-menu-wrap {
+  position: relative;
+}
+
+.recent-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  max-width: 140px;
+}
+
+.recent-trigger:hover,
+.recent-trigger.active {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.recent-trigger-text {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chevron-svg {
@@ -363,11 +545,11 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.ws-popover {
+.recent-popover {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
-  width: 360px;
+  right: 0;
+  width: 320px;
   max-width: 90vw;
   background-color: var(--bg-primary);
   border: 1px solid var(--border-default);
@@ -378,150 +560,128 @@ onUnmounted(() => {
 }
 
 .popover-heading {
-  padding: 0.45rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--text-dim);
+  color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background-color: var(--bg-secondary);
+  letter-spacing: 0.05em;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .popover-list {
-  max-height: 200px;
+  max-height: 220px;
   overflow-y: auto;
-  padding: 0.25rem 0;
+  padding: 0.25rem;
 }
 
 .popover-item {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.75rem;
+  flex-direction: column;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.12s ease;
+  position: relative;
+  transition: background-color 0.1s ease;
 }
 
 .popover-item:hover {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-surface-hover);
 }
 
 .popover-item.current {
-  background-color: var(--accent-light);
+  background-color: var(--bg-tertiary);
+  border-left: 2px solid var(--accent-color);
 }
 
-.item-check {
-  width: 14px;
-  color: var(--accent-hover);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.item-details {
-  flex: 1;
-  min-width: 0;
-}
-
-.item-title {
-  color: var(--text-primary);
-  font-size: 0.8rem;
+.item-name {
+  font-size: 0.78rem;
   font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--text-primary);
 }
 
-.item-sub {
-  color: var(--text-dim);
-  font-size: 0.7rem;
+.item-path {
+  font-size: 0.68rem;
   font-family: var(--font-mono);
-  white-space: nowrap;
+  color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 0.1rem;
 }
 
-.item-del {
-  background: none;
+.item-del-btn {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
   border: none;
   color: var(--text-dim);
-  padding: 3px;
+  padding: 0.2rem;
   border-radius: 3px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.6;
+  display: none;
 }
 
-.item-del:hover {
-  opacity: 1;
-  color: var(--error-color);
+.popover-item:hover .item-del-btn {
+  display: block;
+}
+
+.item-del-btn:hover {
   background-color: var(--error-bg);
+  color: var(--error-color);
 }
 
-.popover-divider {
-  height: 1px;
-  background-color: var(--border-subtle);
-  margin: 0.2rem 0;
-}
-
-.popover-actions {
-  padding: 0.25rem 0;
+.popover-footer {
+  padding: 0.35rem;
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-secondary);
 }
 
 .popover-action-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   width: 100%;
-  padding: 0.45rem 0.75rem;
-  background: none;
+  text-align: left;
+  background: transparent;
   border: none;
   color: var(--text-secondary);
-  font-size: 0.775rem;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 3px;
   cursor: pointer;
-  text-align: left;
-  transition: all 0.12s ease;
+  transition: all 0.1s ease;
 }
 
 .popover-action-btn:hover {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-surface-hover);
   color: var(--text-primary);
 }
 
-.popover-action-btn.danger:hover {
-  color: var(--error-color);
-  background-color: var(--error-bg);
-}
-
-.deck-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
 .panes-counter {
-  font-size: 0.725rem;
+  font-size: 0.75rem;
   font-family: var(--font-mono);
-  color: var(--text-dim);
+  color: var(--text-muted);
+  background-color: var(--bg-secondary);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
 }
 
 .add-terminal-btn {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   background-color: var(--accent-color);
-  color: #ffffff;
-  border: none;
+  border: 1px solid transparent;
+  color: #fff;
   padding: 0.25rem 0.6rem;
-  font-size: 0.775rem;
-  font-weight: 500;
   border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.12s ease;
+  transition: all 0.12s ease;
+  white-space: nowrap;
 }
 
 .add-terminal-btn:hover:not(:disabled) {
@@ -529,62 +689,95 @@ onUnmounted(() => {
 }
 
 .add-terminal-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  background-color: var(--bg-surface-hover);
+  color: var(--text-dim);
+}
+
+.add-terminal-btn kbd {
+  background-color: rgba(0, 0, 0, 0.25);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  margin-left: 0.2rem;
 }
 
 .deck-body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.session-view-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.panes-container {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 .empty-deck-notice {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  text-align: center;
   gap: 0.75rem;
+  color: var(--text-muted);
 }
 
 .notice-svg {
+  opacity: 0.4;
   color: var(--text-dim);
 }
 
 .notice-text {
-  margin: 0;
   font-size: 0.85rem;
-  color: var(--text-muted);
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.notice-text strong {
+  color: var(--text-primary);
 }
 
 .primary-notice-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-default);
-  color: var(--text-primary);
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  font-weight: 500;
+  gap: 0.4rem;
+  background-color: var(--accent-color);
+  color: #fff;
+  border: none;
+  padding: 0.45rem 1rem;
   border-radius: 5px;
+  font-size: 0.82rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background-color 0.12s ease;
+  margin-top: 0.25rem;
 }
 
 .primary-notice-btn:hover {
-  background-color: var(--bg-tertiary);
-  border-color: var(--accent-hover);
+  background-color: var(--accent-hover);
 }
 
-.panes-container {
-  width: 100%;
-  height: 100%;
+.primary-notice-btn kbd {
+  background-color: rgba(0, 0, 0, 0.25);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
 }
 </style>
-
-

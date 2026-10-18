@@ -1,6 +1,7 @@
-import { ref, reactive, readonly } from "vue";
+import { ref, reactive, readonly, computed } from "vue";
 import type {
   WorkspaceViewState,
+  WorkspaceSession,
   PaneMetadata,
   LaunchRequest,
   RecentWorkspace,
@@ -16,7 +17,6 @@ import {
   type AppStateDto,
   type SavedPaneEntry,
 } from "../lib/tauri";
-
 
 const RECENT_WORKSPACES_STORAGE_KEY = "wsedit:recent_workspaces";
 const LAST_ACTIVE_WORKSPACE_KEY = "wsedit:last_active_workspace";
@@ -92,7 +92,7 @@ syncStateFromDisk();
 function persistAllToDisk() {
   const dto: AppStateDto = {
     version: 1,
-    lastActiveWorkspace: state.root,
+    lastActiveWorkspace: state.activeRoot,
     recentWorkspaces: recentWorkspaces.value.map((w) => ({
       path: w.path,
       name: w.name,
@@ -139,6 +139,8 @@ function savePanesForWorkspace(wsPath: string, panes: readonly PaneMetadata[]) {
 }
 
 const state = reactive<WorkspaceViewState>({
+  sessions: [],
+  activeRoot: null,
   root: null,
   panes: [],
   focusedPaneId: null,
@@ -146,7 +148,41 @@ const state = reactive<WorkspaceViewState>({
   isClosing: false,
 });
 
-let errorMessage = ref<string | null>(null);
+const errorMessage = ref<string | null>(null);
+
+function getActiveSession(): WorkspaceSession | null {
+  if (!state.activeRoot) return null;
+  return (
+    state.sessions.find(
+      (s) => s.root.toLowerCase() === state.activeRoot!.toLowerCase()
+    ) || null
+  );
+}
+
+function syncActiveState() {
+  const active = getActiveSession();
+  if (active) {
+    state.root = active.root;
+    state.panes = active.panes;
+    state.focusedPaneId = active.focusedPaneId;
+    state.zoomedPaneId = active.zoomedPaneId;
+  } else {
+    state.root = null;
+    state.panes = [];
+    state.focusedPaneId = null;
+    state.zoomedPaneId = null;
+  }
+}
+
+function findPaneAndSession(
+  paneId: string
+): { pane: PaneMetadata; session: WorkspaceSession } | null {
+  for (const session of state.sessions) {
+    const pane = session.panes.find((p) => p.id === paneId);
+    if (pane) return { pane, session };
+  }
+  return null;
+}
 
 function recordRecentWorkspace(canonicalPath: string) {
   const name = canonicalPath.split(/[/\\]/).filter(Boolean).pop() || canonicalPath;
@@ -182,24 +218,100 @@ function removeRecentWorkspace(pathToRemove: string) {
   persistAllToDisk();
 }
 
+async function addPaneToSession(
+  session: WorkspaceSession,
+  launch: LaunchRequest,
+  title: string
+): Promise<string | null> {
+  if (session.panes.length >= 4) {
+    errorMessage.value = "Mỗi workspace chỉ được mở tối đa 4 terminal pane.";
+    return null;
+  }
+
+  const paneId = `pane_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const generation = 1;
+  const newPane: PaneMetadata = {
+    id: paneId,
+    generation,
+    title,
+    launch,
+    status: "starting",
+    cols: 80,
+    rows: 24,
+  };
+
+  session.panes.push(newPane);
+  session.focusedPaneId = paneId;
+  syncActiveState();
+  savePanesForWorkspace(session.root, session.panes);
+
+  // If launch specifies a custom cwd, use it; otherwise use the workspace root
+  const effectiveCwd = launch.cwd || session.root;
+
+  try {
+    await createPane(
+      paneId,
+      generation,
+      effectiveCwd,
+      launch,
+      newPane.cols,
+      newPane.rows
+    );
+    return paneId;
+  } catch (err: unknown) {
+    const msg = formatErrorMessage(err);
+    newPane.status = "error";
+    newPane.errorCode = "SpawnFailed";
+    newPane.errorMessage = msg;
+    syncActiveState();
+    return null;
+  }
+}
+
 export function useWorkspace() {
-  /** Restore saved panes for the given workspace. */
-  async function restorePanes(wsPath: string) {
-    // Terminate any previous backend processes and clear old panes
-    for (const pane of state.panes) {
-      closePane(pane.id, pane.generation).catch(() => {});
-    }
-    state.panes = [];
-    state.focusedPaneId = null;
-    state.zoomedPaneId = null;
-
+  /** Open a workspace directory and set it as active without terminating other sessions. */
+  async function openWorkspacePath(targetPath: string): Promise<boolean> {
+    errorMessage.value = null;
     try {
-      await closeAllPanes();
-    } catch {}
+      const result = await validateWorkspace(targetPath);
+      if (!result.valid || !result.canonicalPath) {
+        errorMessage.value =
+          result.errorMessage || "Thư mục không tồn tại hoặc không thể truy cập.";
+        return false;
+      }
 
-    const saved = getSavedPanesForWorkspace(wsPath);
-    for (const item of saved) {
-      await addPaneWithLaunch(item.launch, item.title);
+      const canonical = result.canonicalPath;
+      let session = state.sessions.find(
+        (s) => s.root.toLowerCase() === canonical.toLowerCase()
+      );
+
+      if (!session) {
+        const name = canonical.split(/[/\\]/).filter(Boolean).pop() || canonical;
+        session = {
+          root: canonical,
+          name,
+          panes: [],
+          focusedPaneId: null,
+          zoomedPaneId: null,
+        };
+        state.sessions.push(session);
+
+        const saved = getSavedPanesForWorkspace(canonical);
+        for (const item of saved) {
+          await addPaneToSession(session, item.launch, item.title);
+        }
+      }
+
+      state.activeRoot = canonical;
+      syncActiveState();
+      recordRecentWorkspace(canonical);
+      localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, canonical);
+      persistAllToDisk();
+      return true;
+    } catch (err: unknown) {
+      const msg = formatErrorMessage(err);
+      errorMessage.value = `Lỗi mở workspace: ${msg}`;
+      return false;
     }
   }
 
@@ -209,21 +321,7 @@ export function useWorkspace() {
     try {
       const selectedPath = await pickWorkspaceDirectory();
       if (!selectedPath) return false;
-
-      const result = await validateWorkspace(selectedPath);
-      if (result.valid && result.canonicalPath) {
-        if (state.root && state.root.toLowerCase() !== result.canonicalPath.toLowerCase()) {
-          closeWorkspace();
-        }
-        state.root = result.canonicalPath;
-        recordRecentWorkspace(result.canonicalPath);
-        localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, result.canonicalPath);
-        await restorePanes(result.canonicalPath);
-        return true;
-      } else {
-        errorMessage.value = result.errorMessage || "Folder được chọn không hợp lệ hoặc không tồn tại.";
-        return false;
-      }
+      return await openWorkspacePath(selectedPath);
     } catch (err: unknown) {
       const msg = formatErrorMessage(err);
       errorMessage.value = `Lỗi mở workspace: ${msg}`;
@@ -233,179 +331,163 @@ export function useWorkspace() {
 
   /** Open a workspace directly from the recent list or active key. */
   async function openRecentWorkspace(path: string): Promise<boolean> {
-    errorMessage.value = null;
-    try {
-      const result = await validateWorkspace(path);
-      if (result.valid && result.canonicalPath) {
-        if (state.root && state.root.toLowerCase() !== result.canonicalPath.toLowerCase()) {
-          closeWorkspace();
-        }
-        state.root = result.canonicalPath;
-        recordRecentWorkspace(result.canonicalPath);
-        localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, result.canonicalPath);
-        await restorePanes(result.canonicalPath);
-        return true;
-      } else {
-        errorMessage.value = result.errorMessage || `Thư mục không tồn tại hoặc không thể truy cập: ${path}`;
-        return false;
-      }
-    } catch (err: unknown) {
-      const msg = formatErrorMessage(err);
-      errorMessage.value = `Lỗi mở workspace: ${msg}`;
-      return false;
-    }
+    return await openWorkspacePath(path);
   }
 
-  /** Switch workspace by closing current panes and opening new path. */
+  /** Switch active workspace without closing previous background sessions. */
   async function switchWorkspace(path: string): Promise<boolean> {
-    closeWorkspace();
-    return openRecentWorkspace(path);
+    const existing = state.sessions.find(
+      (s) => s.root.toLowerCase() === path.toLowerCase()
+    );
+    if (existing) {
+      state.activeRoot = existing.root;
+      syncActiveState();
+      localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, existing.root);
+      persistAllToDisk();
+      return true;
+    }
+    return await openWorkspacePath(path);
   }
 
   /** Set the workspace root directly (useful for tests/demos). */
   async function setWorkspaceRoot(path: string): Promise<boolean> {
-    errorMessage.value = null;
-    const result = await validateWorkspace(path);
-    if (result.valid && result.canonicalPath) {
-      if (state.root && state.root.toLowerCase() !== result.canonicalPath.toLowerCase()) {
-        closeWorkspace();
-      }
-      state.root = result.canonicalPath;
-      recordRecentWorkspace(result.canonicalPath);
-      localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, result.canonicalPath);
-      await restorePanes(result.canonicalPath);
-      return true;
-    } else {
-      errorMessage.value = result.errorMessage || "Lỗi kiểm tra thư mục workspace.";
-      return false;
-    }
+    return await openWorkspacePath(path);
   }
 
-  /** Close the current workspace and its panes. */
-  async function closeWorkspace() {
+  /** Close a specific workspace session (or active workspace) and its panes. */
+  async function closeWorkspace(rootToClose?: string) {
+    const targetRoot = rootToClose || state.activeRoot;
+    if (!targetRoot) return;
+
+    const sessionIndex = state.sessions.findIndex(
+      (s) => s.root.toLowerCase() === targetRoot.toLowerCase()
+    );
+    if (sessionIndex === -1) return;
+
+    const session = state.sessions[sessionIndex];
+
+    // Terminate only this session's PTY processes
+    for (const pane of session.panes) {
+      try {
+        await closePane(pane.id, pane.generation);
+      } catch (err) {
+        console.warn(`Failed to close PTY for pane ${pane.id}:`, err);
+      }
+    }
+
+    state.sessions.splice(sessionIndex, 1);
+
+    if (state.activeRoot?.toLowerCase() === targetRoot.toLowerCase()) {
+      state.activeRoot = state.sessions[0]?.root || null;
+    }
+
+    syncActiveState();
+
+    if (state.activeRoot) {
+      localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, state.activeRoot);
+    } else {
+      localStorage.removeItem(LAST_ACTIVE_WORKSPACE_KEY);
+    }
+    persistAllToDisk();
+  }
+
+  /** Close all workspaces and all panes (e.g. on application exit). */
+  async function closeAllWorkspaces() {
     state.isClosing = true;
     try {
       await closeAllPanes();
     } catch (err) {
       console.warn("Failed to close all panes on backend:", err);
     }
-
-    state.root = null;
-    state.panes = [];
-    state.focusedPaneId = null;
-    state.zoomedPaneId = null;
+    state.sessions = [];
+    state.activeRoot = null;
+    syncActiveState();
     state.isClosing = false;
-    errorMessage.value = null;
     localStorage.removeItem(LAST_ACTIVE_WORKSPACE_KEY);
     persistAllToDisk();
   }
 
-
-  /** Add a terminal pane with specific launch request configuration. */
-  async function addPaneWithLaunch(launch: LaunchRequest, title: string): Promise<string | null> {
-    if (!state.root) return null;
-    if (state.panes.length >= 4) {
-      errorMessage.value = "Đã đạt giới hạn tối đa 4 terminal pane.";
-      return null;
-    }
-
-    const paneId = `pane_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const generation = 1;
-    const newPane: PaneMetadata = {
-      id: paneId,
-      generation,
-      title: title,
-      launch,
-      status: "starting",
-      cols: 80,
-      rows: 24,
-    };
-
-    state.panes.push(newPane);
-    state.focusedPaneId = paneId;
-    savePanesForWorkspace(state.root, state.panes);
-
-    try {
-      await createPane(
-        paneId,
-        generation,
-        state.root,
-        launch,
-        newPane.cols,
-        newPane.rows
-      );
-      return paneId;
-    } catch (err: unknown) {
-      const msg = formatErrorMessage(err);
-      updatePaneError(paneId, "SpawnFailed", msg);
-      return null;
-    }
+  /** Add a terminal pane with specific launch request configuration to the active workspace. */
+  async function addPaneWithLaunch(
+    launch: LaunchRequest,
+    title: string
+  ): Promise<string | null> {
+    const active = getActiveSession();
+    if (!active) return null;
+    return await addPaneToSession(active, launch, title);
   }
 
   /** Directly add an interactive shell terminal without prompting for CLI. */
   async function addShellPane(): Promise<string | null> {
-    const paneNumber = state.panes.length + 1;
+    const active = getActiveSession();
+    const count = active ? active.panes.length + 1 : 1;
     return addPaneWithLaunch(
       { kind: "shell", displayName: "Terminal" },
-      `Terminal ${paneNumber}`
+      `Terminal ${count}`
     );
   }
 
   function setFocusedPane(paneId: string) {
-    const pane = state.panes.find((p) => p.id === paneId);
-    if (pane) {
-      state.focusedPaneId = paneId;
+    const found = findPaneAndSession(paneId);
+    if (found) {
+      found.session.focusedPaneId = paneId;
+      syncActiveState();
     }
   }
 
   // Zoom management
   function toggleZoom(paneId: string) {
-    if (state.zoomedPaneId === paneId) {
-      state.zoomedPaneId = null;
+    const found = findPaneAndSession(paneId);
+    if (!found) return;
+    const { session } = found;
+    if (session.zoomedPaneId === paneId) {
+      session.zoomedPaneId = null;
     } else {
-      const pane = state.panes.find((p) => p.id === paneId);
-      if (pane) {
-        state.zoomedPaneId = paneId;
-        state.focusedPaneId = paneId;
-      }
+      session.zoomedPaneId = paneId;
+      session.focusedPaneId = paneId;
     }
+    syncActiveState();
   }
 
   function updatePaneStatus(paneId: string, status: PaneMetadata["status"]) {
-    const pane = state.panes.find((p) => p.id === paneId);
-    if (pane) {
-      pane.status = status;
+    const found = findPaneAndSession(paneId);
+    if (found) {
+      found.pane.status = status;
+      syncActiveState();
     }
   }
 
   function updatePaneDimensions(paneId: string, cols: number, rows: number) {
-    const pane = state.panes.find((p) => p.id === paneId);
-    if (pane) {
-      pane.cols = cols;
-      pane.rows = rows;
+    const found = findPaneAndSession(paneId);
+    if (found) {
+      found.pane.cols = cols;
+      found.pane.rows = rows;
     }
   }
 
   function updatePaneExitCode(paneId: string, exitCode: number) {
-    const pane = state.panes.find((p) => p.id === paneId);
-    if (pane) {
-      pane.status = "exited";
-      pane.exitCode = exitCode;
+    const found = findPaneAndSession(paneId);
+    if (found) {
+      found.pane.status = "exited";
+      found.pane.exitCode = exitCode;
+      syncActiveState();
     }
   }
 
   function updatePaneError(paneId: string, errorCode: string, message: string) {
-    const pane = state.panes.find((p) => p.id === paneId);
-    if (pane) {
-      pane.status = "error";
-      pane.errorCode = errorCode;
-      pane.errorMessage = message;
+    const found = findPaneAndSession(paneId);
+    if (found) {
+      found.pane.status = "error";
+      found.pane.errorCode = errorCode;
+      found.pane.errorMessage = message;
+      syncActiveState();
     }
   }
 
   async function restartPane(paneId: string) {
-    const pane = state.panes.find((p) => p.id === paneId);
-    if (!pane || !state.root) return;
+    const found = findPaneAndSession(paneId);
+    if (!found) return;
+    const { pane, session } = found;
 
     try {
       await closePane(paneId, pane.generation);
@@ -418,12 +500,15 @@ export function useWorkspace() {
     pane.exitCode = undefined;
     pane.errorCode = undefined;
     pane.errorMessage = undefined;
+    syncActiveState();
+
+    const effectiveCwd = pane.launch.cwd || session.root;
 
     try {
       await createPane(
         paneId,
         pane.generation,
-        state.root,
+        effectiveCwd,
         pane.launch,
         pane.cols,
         pane.rows
@@ -434,12 +519,15 @@ export function useWorkspace() {
     }
   }
 
-
   async function closePaneById(paneId: string) {
-    const index = state.panes.findIndex((p) => p.id === paneId);
+    const found = findPaneAndSession(paneId);
+    if (!found) return;
+    const { session } = found;
+
+    const index = session.panes.findIndex((p) => p.id === paneId);
     if (index === -1) return;
 
-    const pane = state.panes[index];
+    const pane = session.panes[index];
 
     try {
       await closePane(paneId, pane.generation);
@@ -447,30 +535,26 @@ export function useWorkspace() {
       console.warn(`Error closing pane on backend:`, err);
     }
 
-    state.panes.splice(index, 1);
+    session.panes.splice(index, 1);
+    savePanesForWorkspace(session.root, session.panes);
 
-    if (state.root) {
-      savePanesForWorkspace(state.root, state.panes);
+    if (session.focusedPaneId === paneId) {
+      session.focusedPaneId = session.panes[0]?.id || null;
     }
-
-    if (state.focusedPaneId === paneId) {
-      state.focusedPaneId = state.panes[0]?.id || null;
+    if (session.zoomedPaneId === paneId) {
+      session.zoomedPaneId = null;
     }
-    if (state.zoomedPaneId === paneId) {
-      state.zoomedPaneId = null;
-    }
+    syncActiveState();
   }
-
 
   function renamePane(paneId: string, newTitle: string) {
     const trimmed = newTitle.trim();
     if (!trimmed) return;
-    const pane = state.panes.find((p) => p.id === paneId);
-    if (pane) {
-      pane.title = trimmed;
-      if (state.root) {
-        savePanesForWorkspace(state.root, state.panes);
-      }
+    const found = findPaneAndSession(paneId);
+    if (found) {
+      found.pane.title = trimmed;
+      savePanesForWorkspace(found.session.root, found.session.panes);
+      syncActiveState();
     }
   }
 
@@ -482,8 +566,11 @@ export function useWorkspace() {
     errorMessage.value = null;
   }
 
+  const activeSession = computed(() => getActiveSession());
+
   return {
     state: readonly(state),
+    activeSession,
     recentWorkspaces: readonly(recentWorkspaces),
     selectAndOpenWorkspace,
     openRecentWorkspace,
@@ -491,6 +578,7 @@ export function useWorkspace() {
     switchWorkspace,
     setWorkspaceRoot,
     closeWorkspace,
+    closeAllWorkspaces,
     addPaneWithLaunch,
     addShellPane,
     setFocusedPane,
@@ -506,5 +594,3 @@ export function useWorkspace() {
     clearErrorMessage,
   };
 }
-
-

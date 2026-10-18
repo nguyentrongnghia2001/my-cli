@@ -8,6 +8,8 @@ export interface LaunchRequest {
   /** Only set for custom commands. */
   command?: string;
   args?: readonly string[];
+  /** Optional working directory override for this launch. */
+  cwd?: string;
 }
 
 /** Pane lifecycle status. */
@@ -27,8 +29,19 @@ export interface PaneMetadata {
   rows: number;
 }
 
+/** A live workspace session holding its root directory and its panes. */
+export interface WorkspaceSession {
+  root: string;
+  name: string;
+  panes: PaneMetadata[];
+  focusedPaneId: string | null;
+  zoomedPaneId: string | null;
+}
+
 /** Top-level workspace view state held in the singleton composable. */
 export interface WorkspaceViewState {
+  sessions: WorkspaceSession[];
+  activeRoot: string | null;
   root: string | null;
   panes: PaneMetadata[];
   focusedPaneId: string | null;
