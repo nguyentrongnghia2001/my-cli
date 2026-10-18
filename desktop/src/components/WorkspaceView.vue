@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useWorkspace } from "../composables/useWorkspace";
-import type { LaunchRequest } from "../types/desktop";
+import type { LaunchRequest, WorkspaceSession } from "../types/desktop";
 import PaneGrid from "./PaneGrid.vue";
 import LauncherDialog from "./LauncherDialog.vue";
 import ConfirmModal from "./ConfirmModal.vue";
@@ -19,6 +19,61 @@ const {
   toggleZoom,
   closePaneById,
 } = useWorkspace();
+
+interface SessionSummary {
+  name: string;
+  root: string;
+  panes: readonly { status: string; title: string; errorCode?: string; exitCode?: number }[];
+}
+
+function getSessionStatus(session: SessionSummary) {
+  const runningCount = session.panes.filter(
+    (p) => p.status === "running" || p.status === "starting"
+  ).length;
+  const errorCount = session.panes.filter((p) => p.status === "error").length;
+  const exitedCount = session.panes.filter((p) => p.status === "exited").length;
+
+  return {
+    isRunning: runningCount > 0,
+    runningCount,
+    hasError: errorCount > 0,
+    errorCount,
+    isAllExited: session.panes.length > 0 && exitedCount === session.panes.length,
+    totalCount: session.panes.length,
+  };
+}
+
+function getSessionTooltip(session: SessionSummary): string {
+  const lines: string[] = [
+    `${session.name} — ${session.root}`,
+    "─────────────────────────────",
+  ];
+
+  if (session.panes.length === 0) {
+    lines.push("Chưa có terminal nào đang chạy.");
+  } else {
+    for (const pane of session.panes) {
+      let icon = "⚪";
+      let statusText = "Nhàn rỗi";
+      if (pane.status === "running") {
+        icon = "🟢";
+        statusText = "Đang chạy";
+      } else if (pane.status === "starting") {
+        icon = "🟡";
+        statusText = "Đang khởi động...";
+      } else if (pane.status === "error") {
+        icon = "🔴";
+        statusText = `Lỗi (${pane.errorCode || "Unknown"})`;
+      } else if (pane.status === "exited") {
+        icon = "✓";
+        statusText = `Đã xong (mã: ${pane.exitCode ?? 0})`;
+      }
+      lines.push(`${icon} ${pane.title}: ${statusText}`);
+    }
+  }
+
+  return lines.join("\n");
+}
 
 const isRecentMenuOpen = ref(false);
 const isLauncherOpen = ref(false);
@@ -189,17 +244,59 @@ onUnmounted(() => {
             v-for="session in state.sessions"
             :key="session.root"
             class="ws-tab"
-            :class="{ active: session.root.toLowerCase() === state.activeRoot?.toLowerCase() }"
-            :title="session.root"
+            :class="{
+              active: session.root.toLowerCase() === state.activeRoot?.toLowerCase(),
+              'has-running': getSessionStatus(session).isRunning,
+              'has-error': getSessionStatus(session).hasError,
+            }"
+            :title="getSessionTooltip(session)"
             @click="handleSwitchWorkspace(session.root)"
           >
             <svg class="ws-tab-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
             <span class="ws-tab-name">{{ session.name }}</span>
-            <span v-if="session.panes.length > 0" class="ws-tab-badge" :title="`${session.panes.length} terminal`">
-              {{ session.panes.length }}
-            </span>
+
+            <!-- Status Indicator / Pill -->
+            <div v-if="session.panes.length > 0" class="ws-tab-status-wrap">
+              <!-- Running: live pulsing dot -->
+              <span
+                v-if="getSessionStatus(session).isRunning"
+                class="ws-tab-pill running"
+                :title="`${getSessionStatus(session).runningCount} terminal đang chạy`"
+              >
+                <span class="pulse-dot"></span>
+                <span class="pill-count">{{ getSessionStatus(session).runningCount }}</span>
+              </span>
+
+              <!-- Error: red dot -->
+              <span
+                v-else-if="getSessionStatus(session).hasError"
+                class="ws-tab-pill error"
+                title="Có terminal gặp lỗi"
+              >
+                <span class="error-dot"></span>
+                <span class="pill-count">{{ session.panes.length }}</span>
+              </span>
+
+              <!-- Completed: checkmark -->
+              <span
+                v-else-if="getSessionStatus(session).isAllExited"
+                class="ws-tab-pill exited"
+                title="Tất cả terminal đã hoàn thành"
+              >
+                <svg class="check-icon" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="pill-count">{{ session.panes.length }}</span>
+              </span>
+
+              <!-- Default neutral count -->
+              <span v-else class="ws-tab-pill neutral">
+                {{ session.panes.length }}
+              </span>
+            </div>
+
             <button
               class="ws-tab-close"
               title="Đóng workspace này"
@@ -453,13 +550,91 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.ws-tab-badge {
+.ws-tab.has-running:not(.active) {
+  border-color: rgba(63, 185, 80, 0.45);
+}
+
+.ws-tab-status-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.ws-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 10px;
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.ws-tab-pill.running {
+  background: rgba(63, 185, 80, 0.18);
+  color: #3fb950;
+  border: 1px solid rgba(63, 185, 80, 0.4);
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3fb950;
+  box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7);
+  animation: pulse-green 1.6s infinite ease-out;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-green {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 5px rgba(63, 185, 80, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(63, 185, 80, 0);
+  }
+}
+
+.ws-tab-pill.error {
+  background: rgba(248, 81, 73, 0.18);
+  color: #f85149;
+  border: 1px solid rgba(248, 81, 73, 0.4);
+}
+
+.error-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f85149;
+  flex-shrink: 0;
+}
+
+.ws-tab-pill.exited {
+  background: rgba(139, 148, 158, 0.15);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.check-icon {
+  color: #3fb950;
+  flex-shrink: 0;
+}
+
+.ws-tab-pill.neutral {
   background: var(--bg-primary);
   color: var(--text-muted);
-  border-radius: 8px;
-  padding: 1px 5px;
-  font-family: var(--font-mono);
+  border: 1px solid var(--border-subtle);
+}
+
+.pill-count {
+  font-size: 10px;
 }
 
 .ws-tab-close {
