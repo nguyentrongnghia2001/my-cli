@@ -15,6 +15,7 @@ use crate::launcher::{build_pty_command, LaunchRequest};
 pub struct PtyProcess {
     pub pane_id: String,
     pub generation: u32,
+    pub workspace: String,
     master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
     child_pid: Option<u32>,
@@ -62,27 +63,76 @@ impl PtyProcess {
         let writer = Arc::new(Mutex::new(writer));
         let is_alive = Arc::new(AtomicBool::new(true));
 
-        // Start reader thread for PTY output
+        // Start reader thread for PTY output with streaming UTF-8 handling
         let pane_id_clone = pane_id.clone();
         let is_alive_reader = is_alive.clone();
         let app_handle_reader = app_handle.clone();
         thread::spawn(move || {
             let mut buf = [0u8; 8192];
+            let mut leftover: Vec<u8> = Vec::new();
             let mut reader = reader;
             while is_alive_reader.load(Ordering::Relaxed) {
                 match reader.read(&mut buf) {
                     Ok(0) => break, // EOF
                     Ok(n) => {
-                        let text = String::from_utf8_lossy(&buf[..n]).to_string();
-                        let event = PaneEvent::Output {
-                            pane_id: pane_id_clone.clone(),
-                            generation,
-                            data: text,
+                        let combined = if leftover.is_empty() {
+                            &buf[..n]
+                        } else {
+                            leftover.extend_from_slice(&buf[..n]);
+                            &leftover[..]
                         };
-                        let _ = app_handle_reader.emit("pane-event", event);
+
+                        match std::str::from_utf8(combined) {
+                            Ok(valid_str) => {
+                                let event = PaneEvent::Output {
+                                    pane_id: pane_id_clone.clone(),
+                                    generation,
+                                    data: valid_str.to_string(),
+                                };
+                                let _ = app_handle_reader.emit("pane-event", event);
+                                leftover.clear();
+                            }
+                            Err(e) => {
+                                let valid_up_to = e.valid_up_to();
+                                if valid_up_to > 0 {
+                                    if let Ok(valid_str) = std::str::from_utf8(&combined[..valid_up_to]) {
+                                        let event = PaneEvent::Output {
+                                            pane_id: pane_id_clone.clone(),
+                                            generation,
+                                            data: valid_str.to_string(),
+                                        };
+                                        let _ = app_handle_reader.emit("pane-event", event);
+                                    }
+                                }
+
+                                if e.error_len().is_none() {
+                                    // Incomplete UTF-8 sequence split across buffer boundary
+                                    leftover = combined[valid_up_to..].to_vec();
+                                } else {
+                                    // Lossy conversion for genuine invalid bytes
+                                    let text = String::from_utf8_lossy(&combined[valid_up_to..]).to_string();
+                                    let event = PaneEvent::Output {
+                                        pane_id: pane_id_clone.clone(),
+                                        generation,
+                                        data: text,
+                                    };
+                                    let _ = app_handle_reader.emit("pane-event", event);
+                                    leftover.clear();
+                                }
+                            }
+                        }
                     }
                     Err(_) => break,
                 }
+            }
+            if !leftover.is_empty() {
+                let text = String::from_utf8_lossy(&leftover).to_string();
+                let event = PaneEvent::Output {
+                    pane_id: pane_id_clone,
+                    generation,
+                    data: text,
+                };
+                let _ = app_handle_reader.emit("pane-event", event);
             }
             is_alive_reader.store(false, Ordering::Relaxed);
         });
@@ -120,6 +170,7 @@ impl PtyProcess {
         Ok(Self {
             pane_id,
             generation,
+            workspace: cwd,
             master,
             writer,
             child_pid: pid,

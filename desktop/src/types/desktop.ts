@@ -15,6 +15,9 @@ export interface LaunchRequest {
 /** Pane lifecycle status. */
 export type PaneStatus = "starting" | "running" | "exited" | "closing" | "error";
 
+/** Pane execution activity state when the process is running. */
+export type PaneActivity = "idle" | "executing" | "waiting_approval";
+
 /** Frontend-only metadata for one terminal pane. */
 export interface PaneMetadata {
   id: string;
@@ -22,6 +25,8 @@ export interface PaneMetadata {
   title: string;
   launch: LaunchRequest;
   status: PaneStatus;
+  activity?: PaneActivity;
+  detectedKind?: LaunchProfileKind;
   exitCode?: number;
   errorCode?: string;
   errorMessage?: string;

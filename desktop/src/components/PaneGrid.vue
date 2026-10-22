@@ -139,7 +139,7 @@ const gridRowsStyle = computed(() => {
         }"
         @click="setFocusedPane(pane.id)"
       >
-        <TerminalPane :pane="pane" />
+        <TerminalPane :key="pane.id" :pane="pane" />
       </div>
     </div>
 
@@ -151,11 +151,12 @@ const gridRowsStyle = computed(() => {
     >
       <div
         v-if="panes[0]"
+        :key="panes[0].id"
         class="pane-box"
         :class="{ 'pane-focused': panes[0].id === focusedPaneId }"
         @click="setFocusedPane(panes[0].id)"
       >
-        <TerminalPane :pane="panes[0]" />
+        <TerminalPane :key="panes[0].id" :pane="panes[0]" />
       </div>
 
       <div
@@ -170,11 +171,12 @@ const gridRowsStyle = computed(() => {
 
       <div
         v-if="panes[1]"
+        :key="panes[1].id"
         class="pane-box"
         :class="{ 'pane-focused': panes[1].id === focusedPaneId }"
         @click="setFocusedPane(panes[1].id)"
       >
-        <TerminalPane :pane="panes[1]" />
+        <TerminalPane :key="panes[1].id" :pane="panes[1]" />
       </div>
     </div>
 
@@ -187,11 +189,12 @@ const gridRowsStyle = computed(() => {
       <!-- Left Pane 1 -->
       <div
         v-if="panes[0]"
+        :key="panes[0].id"
         class="pane-box"
         :class="{ 'pane-focused': panes[0].id === focusedPaneId }"
         @click="setFocusedPane(panes[0].id)"
       >
-        <TerminalPane :pane="panes[0]" />
+        <TerminalPane :key="panes[0].id" :pane="panes[0]" />
       </div>
 
       <!-- Vertical Splitter between Left and Right -->
@@ -214,11 +217,12 @@ const gridRowsStyle = computed(() => {
       >
         <div
           v-if="panes[1]"
+          :key="panes[1].id"
           class="pane-box"
           :class="{ 'pane-focused': panes[1].id === focusedPaneId }"
           @click="setFocusedPane(panes[1].id)"
         >
-          <TerminalPane :pane="panes[1]" />
+          <TerminalPane :key="panes[1].id" :pane="panes[1]" />
         </div>
 
         <!-- Horizontal Splitter between Pane 2 and 3 -->
@@ -234,11 +238,12 @@ const gridRowsStyle = computed(() => {
 
         <div
           v-if="panes[2]"
+          :key="panes[2].id"
           class="pane-box"
           :class="{ 'pane-focused': panes[2].id === focusedPaneId }"
           @click="setFocusedPane(panes[2].id)"
         >
-          <TerminalPane :pane="panes[2]" />
+          <TerminalPane :key="panes[2].id" :pane="panes[2]" />
         </div>
       </div>
     </div>
@@ -254,38 +259,42 @@ const gridRowsStyle = computed(() => {
     >
       <div
         v-if="panes[0]"
+        :key="panes[0].id"
         class="pane-box"
         :class="{ 'pane-focused': panes[0].id === focusedPaneId }"
         @click="setFocusedPane(panes[0].id)"
       >
-        <TerminalPane :pane="panes[0]" />
+        <TerminalPane :key="panes[0].id" :pane="panes[0]" />
       </div>
 
       <div
         v-if="panes[1]"
+        :key="panes[1].id"
         class="pane-box"
         :class="{ 'pane-focused': panes[1].id === focusedPaneId }"
         @click="setFocusedPane(panes[1].id)"
       >
-        <TerminalPane :pane="panes[1]" />
+        <TerminalPane :key="panes[1].id" :pane="panes[1]" />
       </div>
 
       <div
         v-if="panes[2]"
+        :key="panes[2].id"
         class="pane-box"
         :class="{ 'pane-focused': panes[2].id === focusedPaneId }"
         @click="setFocusedPane(panes[2].id)"
       >
-        <TerminalPane :pane="panes[2]" />
+        <TerminalPane :key="panes[2].id" :pane="panes[2]" />
       </div>
 
       <div
         v-if="panes[3]"
+        :key="panes[3].id"
         class="pane-box"
         :class="{ 'pane-focused': panes[3].id === focusedPaneId }"
         @click="setFocusedPane(panes[3].id)"
       >
-        <TerminalPane :pane="panes[3]" />
+        <TerminalPane :key="panes[3].id" :pane="panes[3]" />
       </div>
 
       <!-- Vertical Splitter -->

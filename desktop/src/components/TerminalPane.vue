@@ -9,7 +9,16 @@ const props = defineProps<{
   pane: PaneMetadata;
 }>();
 
-const { state, updatePaneStatus, updatePaneExitCode, updatePaneError, restartPane, setFocusedPane } = useWorkspace();
+const {
+  state,
+  updatePaneStatus,
+  updatePaneActivity,
+  updatePaneDetectedKind,
+  updatePaneExitCode,
+  updatePaneError,
+  restartPane,
+  setFocusedPane,
+} = useWorkspace();
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
 let terminalInstance: ReturnType<typeof usePaneTerminal> | null = null;
@@ -33,35 +42,52 @@ function initializeTerminal() {
       },
       (errCode, msg) => {
         updatePaneError(props.pane.id, errCode, msg);
+      },
+      (activity) => {
+        updatePaneActivity(props.pane.id, activity);
+      },
+      (kind) => {
+        updatePaneDetectedKind(props.pane.id, kind);
       }
     );
 
-    // Initial setup completes, mark status running
+    // Initial setup completes, mark status running with idle activity
     updatePaneStatus(props.pane.id, "running");
+    updatePaneActivity(props.pane.id, "idle");
+  }
+}
+
+function handleCustomFocus(e: Event) {
+  const customEvent = e as CustomEvent<{ paneId: string }>;
+  if (customEvent.detail?.paneId === props.pane.id && terminalInstance) {
+    terminalInstance.focus();
   }
 }
 
 onMounted(() => {
   initializeTerminal();
+  window.addEventListener("wsedit:focus-pane", handleCustomFocus);
 });
 
 onUnmounted(() => {
   if (terminalInstance) {
     terminalInstance.dispose();
   }
+  window.removeEventListener("wsedit:focus-pane", handleCustomFocus);
 });
 
-// Re-initialize terminal on restart / new generation
+// Re-initialize terminal on restart, new generation, or pane ID change
 watch(
-  () => props.pane.generation,
+  () => [props.pane.id, props.pane.generation],
   () => {
     initializeTerminal();
   }
 );
 
-// Focus xterm if state says focused
+// Focus and fit xterm if state says focused
 watch(isFocused, (focused) => {
   if (focused && terminalInstance) {
+    terminalInstance.fit();
     terminalInstance.focus();
   }
 });

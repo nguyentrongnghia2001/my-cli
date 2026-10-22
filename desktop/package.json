@@ -8,6 +8,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
+    "test": "node --test tests/workspace-status.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

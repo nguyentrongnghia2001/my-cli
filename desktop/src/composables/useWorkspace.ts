@@ -3,6 +3,7 @@ import type {
   WorkspaceViewState,
   WorkspaceSession,
   PaneMetadata,
+  LaunchProfileKind,
   LaunchRequest,
   RecentWorkspace,
 } from "../types/desktop";
@@ -17,6 +18,7 @@ import {
   type AppStateDto,
   type SavedPaneEntry,
 } from "../lib/tauri";
+import { notifyAgentNeedsApproval, notifyAgentCompleted } from "../lib/notifications";
 
 const RECENT_WORKSPACES_STORAGE_KEY = "wsedit:recent_workspaces";
 const LAST_ACTIVE_WORKSPACE_KEY = "wsedit:last_active_workspace";
@@ -152,9 +154,10 @@ const errorMessage = ref<string | null>(null);
 
 function getActiveSession(): WorkspaceSession | null {
   if (!state.activeRoot) return null;
+  const normActive = normalizePath(state.activeRoot);
   return (
     state.sessions.find(
-      (s) => s.root.toLowerCase() === state.activeRoot!.toLowerCase()
+      (s) => normalizePath(s.root) === normActive
     ) || null
   );
 }
@@ -257,6 +260,9 @@ async function addPaneToSession(
       newPane.cols,
       newPane.rows
     );
+    newPane.status = "running";
+    newPane.activity = "idle";
+    syncActiveState();
     return paneId;
   } catch (err: unknown) {
     const msg = formatErrorMessage(err);
@@ -281,8 +287,9 @@ export function useWorkspace() {
       }
 
       const canonical = result.canonicalPath;
+      const normCanonical = normalizePath(canonical);
       let session = state.sessions.find(
-        (s) => s.root.toLowerCase() === canonical.toLowerCase()
+        (s) => normalizePath(s.root) === normCanonical
       );
 
       if (!session) {
@@ -295,15 +302,18 @@ export function useWorkspace() {
           zoomedPaneId: null,
         };
         state.sessions.push(session);
+        state.activeRoot = canonical;
+        syncActiveState();
 
         const saved = getSavedPanesForWorkspace(canonical);
         for (const item of saved) {
           await addPaneToSession(session, item.launch, item.title);
         }
+      } else {
+        state.activeRoot = session.root;
+        syncActiveState();
       }
 
-      state.activeRoot = canonical;
-      syncActiveState();
       recordRecentWorkspace(canonical);
       localStorage.setItem(LAST_ACTIVE_WORKSPACE_KEY, canonical);
       persistAllToDisk();
@@ -336,8 +346,9 @@ export function useWorkspace() {
 
   /** Switch active workspace without closing previous background sessions. */
   async function switchWorkspace(path: string): Promise<boolean> {
+    const norm = normalizePath(path);
     const existing = state.sessions.find(
-      (s) => s.root.toLowerCase() === path.toLowerCase()
+      (s) => normalizePath(s.root) === norm
     );
     if (existing) {
       state.activeRoot = existing.root;
@@ -457,6 +468,71 @@ export function useWorkspace() {
     }
   }
 
+  function updatePaneActivity(paneId: string, activity: PaneMetadata["activity"]) {
+    const found = findPaneAndSession(paneId);
+    if (found) {
+      const oldActivity = found.pane.activity;
+      found.pane.activity = activity;
+      syncActiveState();
+
+      if (activity === "waiting_approval" && oldActivity !== "waiting_approval") {
+        notifyAgentNeedsApproval();
+      } else if (activity === "idle" && oldActivity === "executing") {
+        notifyAgentCompleted();
+      }
+    }
+  }
+
+  /**
+   * Jump and focus directly to the terminal pane requiring user attention
+   * (e.g. waiting for approval [y/N] or currently executing).
+   */
+  function focusAttentionPane(targetRoot?: string) {
+    const root = targetRoot || state.activeRoot;
+    if (!root) return;
+
+    if (state.activeRoot?.toLowerCase() !== root.toLowerCase()) {
+      switchWorkspace(root);
+    }
+
+    const session = state.sessions.find(
+      (s) => s.root.toLowerCase() === root.toLowerCase()
+    );
+    if (!session || session.panes.length === 0) return;
+
+    const target =
+      session.panes.find(
+        (p) => p.status === "running" && p.activity === "waiting_approval"
+      ) ||
+      session.panes.find(
+        (p) => p.status === "running" && p.activity === "executing"
+      ) ||
+      session.panes[0];
+
+    if (target) {
+      if (session.zoomedPaneId && session.zoomedPaneId !== target.id) {
+        session.zoomedPaneId = null;
+      }
+      session.focusedPaneId = target.id;
+      syncActiveState();
+
+      // Dispatch event so the xterm instance receives focus even if already selected
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("wsedit:focus-pane", { detail: { paneId: target.id } })
+        );
+      }, 50);
+    }
+  }
+
+  function updatePaneDetectedKind(paneId: string, kind: LaunchProfileKind) {
+    const found = findPaneAndSession(paneId);
+    if (found && (found.pane.launch.kind === "shell" || found.pane.launch.kind === "custom")) {
+      found.pane.detectedKind = kind;
+      syncActiveState();
+    }
+  }
+
   function updatePaneDimensions(paneId: string, cols: number, rows: number) {
     const found = findPaneAndSession(paneId);
     if (found) {
@@ -513,6 +589,9 @@ export function useWorkspace() {
         pane.cols,
         pane.rows
       );
+      pane.status = "running";
+      pane.activity = "idle";
+      syncActiveState();
     } catch (err: unknown) {
       const msg = formatErrorMessage(err);
       updatePaneError(paneId, "SpawnFailed", msg);
@@ -582,8 +661,11 @@ export function useWorkspace() {
     addPaneWithLaunch,
     addShellPane,
     setFocusedPane,
+    focusAttentionPane,
     toggleZoom,
     updatePaneStatus,
+    updatePaneActivity,
+    updatePaneDetectedKind,
     updatePaneDimensions,
     updatePaneExitCode,
     updatePaneError,

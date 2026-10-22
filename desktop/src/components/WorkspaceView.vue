@@ -5,6 +5,7 @@ import type { LaunchRequest, WorkspaceSession } from "../types/desktop";
 import PaneGrid from "./PaneGrid.vue";
 import LauncherDialog from "./LauncherDialog.vue";
 import ConfirmModal from "./ConfirmModal.vue";
+import AgentStatusBadge from "./AgentStatusBadge.vue";
 
 const {
   state,
@@ -16,6 +17,7 @@ const {
   removeRecentWorkspace,
   closeWorkspace,
   setFocusedPane,
+  focusAttentionPane,
   toggleZoom,
   closePaneById,
 } = useWorkspace();
@@ -23,17 +25,42 @@ const {
 interface SessionSummary {
   name: string;
   root: string;
-  panes: readonly { status: string; title: string; errorCode?: string; exitCode?: number }[];
+  panes: readonly {
+    status: string;
+    activity?: string;
+    detectedKind?: string;
+    title: string;
+    errorCode?: string;
+    exitCode?: number;
+  }[];
+}
+
+function isSessionActive(root: string): boolean {
+  if (!state.activeRoot) return false;
+  return (
+    root.replace(/\\/g, "/").toLowerCase() ===
+    state.activeRoot.replace(/\\/g, "/").toLowerCase()
+  );
 }
 
 function getSessionStatus(session: SessionSummary) {
+  const waitingApprovalCount = session.panes.filter(
+    (p) => p.status === "running" && p.activity === "waiting_approval"
+  ).length;
+  const executingCount = session.panes.filter(
+    (p) => p.status === "running" && p.activity === "executing"
+  ).length;
   const runningCount = session.panes.filter(
-    (p) => p.status === "running" || p.status === "starting"
+    (p) => p.status === "running"
   ).length;
   const errorCount = session.panes.filter((p) => p.status === "error").length;
   const exitedCount = session.panes.filter((p) => p.status === "exited").length;
 
   return {
+    hasWaitingApproval: waitingApprovalCount > 0,
+    waitingApprovalCount,
+    isExecuting: executingCount > 0,
+    executingCount,
     isRunning: runningCount > 0,
     runningCount,
     hasError: errorCount > 0,
@@ -56,8 +83,16 @@ function getSessionTooltip(session: SessionSummary): string {
       let icon = "⚪";
       let statusText = "Nhàn rỗi";
       if (pane.status === "running") {
-        icon = "🟢";
-        statusText = "Đang chạy";
+        if (pane.activity === "waiting_approval") {
+          icon = "🟡";
+          statusText = "Đang chờ duyệt lệnh [y/N]";
+        } else if (pane.activity === "executing") {
+          icon = "⟳";
+          statusText = "Đang thực thi...";
+        } else {
+          icon = "🟢";
+          statusText = "Sẵn sàng (Chờ lệnh)";
+        }
       } else if (pane.status === "starting") {
         icon = "🟡";
         statusText = "Đang khởi động...";
@@ -164,7 +199,7 @@ function closeRecentMenu() {
 
 async function handleSwitchWorkspace(path: string) {
   closeRecentMenu();
-  if (state.activeRoot?.toLowerCase() === path.toLowerCase()) return;
+  if (isSessionActive(path)) return;
   await switchWorkspace(path);
 }
 
@@ -245,8 +280,9 @@ onUnmounted(() => {
             :key="session.root"
             class="ws-tab"
             :class="{
-              active: session.root.toLowerCase() === state.activeRoot?.toLowerCase(),
-              'has-running': getSessionStatus(session).isRunning,
+              active: isSessionActive(session.root),
+              'has-waiting': getSessionStatus(session).hasWaitingApproval,
+              'has-running': getSessionStatus(session).isExecuting,
               'has-error': getSessionStatus(session).hasError,
             }"
             :title="getSessionTooltip(session)"
@@ -257,33 +293,58 @@ onUnmounted(() => {
             </svg>
             <span class="ws-tab-name">{{ session.name }}</span>
 
-            <!-- Status Indicator / Pill -->
-            <div v-if="session.panes.length > 0" class="ws-tab-status-wrap">
-              <!-- Running: live pulsing dot -->
+            <!-- Status Indicator / Pill (matching navbar screenshot) -->
+            <div
+              v-if="session.panes.length > 0"
+              class="ws-tab-status-wrap"
+              title="Nhấn để chuyển nhanh tới terminal đang chờ duyệt lệnh hoặc đang thực thi"
+              @click.stop="focusAttentionPane(session.root)"
+            >
+              <!-- Priority 1: Waiting for Approval [y/N] (Amber pulsing dot) -->
               <span
-                v-if="getSessionStatus(session).isRunning"
+                v-if="getSessionStatus(session).hasWaitingApproval"
+                class="ws-tab-pill waiting-approval"
+                :title="getSessionTooltip(session)"
+              >
+                <span class="pulse-dot-amber"></span>
+                <span class="pill-count">{{ getSessionStatus(session).waitingApprovalCount }}</span>
+              </span>
+
+              <!-- Priority 2: Actively Executing Agent (Green pulsing dot) -->
+              <span
+                v-else-if="getSessionStatus(session).isExecuting"
+                class="ws-tab-pill running executing"
+                :title="getSessionTooltip(session)"
+              >
+                <span class="pulse-dot live"></span>
+                <span class="pill-count">{{ getSessionStatus(session).executingCount }}</span>
+              </span>
+
+              <!-- Priority 3: Error: red dot -->
+              <span
+                v-else-if="getSessionStatus(session).hasError"
+                class="ws-tab-pill error"
+                :title="getSessionTooltip(session)"
+              >
+                <span class="error-dot"></span>
+                <span class="pill-count">{{ getSessionStatus(session).errorCount }}</span>
+              </span>
+
+              <!-- Priority 4: Running Idle: solid green dot with count -->
+              <span
+                v-else-if="getSessionStatus(session).isRunning"
                 class="ws-tab-pill running"
-                :title="`${getSessionStatus(session).runningCount} terminal đang chạy`"
+                :title="getSessionTooltip(session)"
               >
                 <span class="pulse-dot"></span>
                 <span class="pill-count">{{ getSessionStatus(session).runningCount }}</span>
               </span>
 
-              <!-- Error: red dot -->
-              <span
-                v-else-if="getSessionStatus(session).hasError"
-                class="ws-tab-pill error"
-                title="Có terminal gặp lỗi"
-              >
-                <span class="error-dot"></span>
-                <span class="pill-count">{{ session.panes.length }}</span>
-              </span>
-
-              <!-- Completed: checkmark -->
+              <!-- Priority 5: Completed: checkmark -->
               <span
                 v-else-if="getSessionStatus(session).isAllExited"
                 class="ws-tab-pill exited"
-                title="Tất cả terminal đã hoàn thành"
+                :title="getSessionTooltip(session)"
               >
                 <svg class="check-icon" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                   <polyline points="20 6 9 17 4 12"></polyline>
@@ -351,7 +412,7 @@ onUnmounted(() => {
                 v-for="ws in recentWorkspaces"
                 :key="ws.path"
                 class="popover-item"
-                :class="{ current: ws.path.toLowerCase() === state.activeRoot?.toLowerCase() }"
+                :class="{ current: isSessionActive(ws.path) }"
                 @click="handleSwitchWorkspace(ws.path)"
               >
                 <div class="item-name">{{ ws.name }}</div>
@@ -402,7 +463,7 @@ onUnmounted(() => {
       <div
         v-for="session in state.sessions"
         :key="session.root"
-        v-show="session.root.toLowerCase() === state.activeRoot?.toLowerCase()"
+        v-show="isSessionActive(session.root)"
         class="session-view-wrapper"
       >
         <!-- Notice if this workspace has 0 panes -->
@@ -519,7 +580,7 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.12s ease;
   white-space: nowrap;
-  max-width: 180px;
+  max-width: 280px;
 }
 
 .ws-tab:hover {
@@ -550,6 +611,11 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.ws-tab.has-waiting:not(.active) {
+  border-color: rgba(245, 158, 11, 0.6);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
+}
+
 .ws-tab.has-running:not(.active) {
   border-color: rgba(63, 185, 80, 0.45);
 }
@@ -557,34 +623,84 @@ onUnmounted(() => {
 .ws-tab-status-wrap {
   display: flex;
   align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  border-radius: 9999px;
+  transition: transform 0.12s ease;
+}
+
+.ws-tab-status-wrap:hover {
+  transform: scale(1.08);
 }
 
 .ws-tab-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  border-radius: 10px;
-  padding: 1px 6px;
+  gap: 5px;
+  font-size: 11px;
+  border-radius: 9999px;
+  padding: 1.5px 7px;
   font-family: var(--font-mono);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.2;
 }
 
+.ws-tab-pill.waiting-approval {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.pulse-dot-amber {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  animation: pulse-amber-pill 1.4s infinite ease-out;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-amber-pill {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  }
+  70% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
 .ws-tab-pill.running {
-  background: rgba(63, 185, 80, 0.18);
-  color: #3fb950;
-  border: 1px solid rgba(63, 185, 80, 0.4);
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.ws-tab-pill.running.executing {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: rgba(52, 211, 153, 0.6);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
 }
 
 .pulse-dot {
-  width: 6px;
-  height: 6px;
+  width: 6.5px;
+  height: 6.5px;
   border-radius: 50%;
-  background: #3fb950;
-  box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7);
-  animation: pulse-green 1.6s infinite ease-out;
+  background: #10b981;
   flex-shrink: 0;
+}
+
+.pulse-dot.live {
+  background: #34d399;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulse-green 1.4s infinite ease-out;
 }
 
 @keyframes pulse-green {

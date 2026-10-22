@@ -9,7 +9,14 @@ use crate::pty_process::PtyProcess;
 
 #[derive(Default)]
 pub struct PtyManager {
-    processes: Arc<Mutex<HashMap<String, PtyProcess>>>,
+    processes: Arc<Mutex<HashMap<String, Arc<PtyProcess>>>>,
+}
+
+fn normalize_workspace(p: &str) -> String {
+    p.trim_start_matches(r"\\?\")
+        .replace('/', "\\")
+        .trim_end_matches('\\')
+        .to_lowercase()
 }
 
 impl PtyManager {
@@ -29,29 +36,48 @@ impl PtyManager {
         cols: u16,
         rows: u16,
     ) -> Result<()> {
-        let mut map = self.processes.lock();
+        let old_proc = {
+            let mut map = self.processes.lock();
 
-        // Prune dead processes first
-        map.retain(|_, proc| proc.is_alive());
+            // Prune dead processes first
+            map.retain(|_, proc| proc.is_alive());
 
-        // If the same pane_id is already present (e.g. restart or retry), terminate and replace
-        if let Some(old_proc) = map.remove(&pane_id) {
-            let _ = old_proc.terminate(300);
-        }
+            // If the same pane_id is already present (e.g. restart or retry), take and terminate
+            let old = map.remove(&pane_id);
 
-        // Cap total concurrent PTY processes across all active workspace sessions to 16
-        while map.len() >= 16 {
-            if let Some(first_key) = map.keys().next().cloned() {
-                if let Some(old_proc) = map.remove(&first_key) {
-                    let _ = old_proc.terminate(300);
+            // Enforce maximum 4 panes per workspace
+            let norm_ws = normalize_workspace(&workspace);
+            let workspace_pane_count = map
+                .values()
+                .filter(|p| normalize_workspace(&p.workspace) == norm_ws)
+                .count();
+
+            if workspace_pane_count >= 4 {
+                if let Some(old) = old {
+                    map.insert(pane_id, old);
                 }
-            } else {
-                break;
+                return Err(DesktopError::InvalidLaunch(
+                    "Mỗi workspace chỉ được mở tối đa 4 terminal pane.".to_string(),
+                ));
             }
+
+            // Cap total concurrent PTY processes across all workspace sessions to 16
+            if map.len() >= 16 {
+                if let Some(old) = old {
+                    map.insert(pane_id, old);
+                }
+                return Err(DesktopError::InvalidLaunch(
+                    "Đã đạt giới hạn tối đa 16 terminal đồng thời trên toàn hệ thống.".to_string(),
+                ));
+            }
+            old
+        };
+
+        if let Some(old) = old_proc {
+            let _ = old.terminate(300);
         }
 
-
-        let process = PtyProcess::spawn(
+        let process = Arc::new(PtyProcess::spawn(
             app_handle,
             pane_id.clone(),
             generation,
@@ -59,34 +85,41 @@ impl PtyManager {
             launch,
             cols,
             rows,
-        )?;
+        )?);
 
+        let mut map = self.processes.lock();
         map.insert(pane_id, process);
         Ok(())
     }
 
     pub fn write_pane(&self, pane_id: &str, generation: u32, bytes: &[u8]) -> Result<()> {
-        let map = self.processes.lock();
-        let proc = map
-            .get(pane_id)
-            .ok_or_else(|| DesktopError::StaleGeneration)?;
+        let proc = {
+            let map = self.processes.lock();
+            let proc = map
+                .get(pane_id)
+                .ok_or_else(|| DesktopError::StaleGeneration)?;
 
-        if proc.generation != generation {
-            return Err(DesktopError::StaleGeneration);
-        }
+            if proc.generation != generation {
+                return Err(DesktopError::StaleGeneration);
+            }
+            proc.clone()
+        };
 
         proc.write(bytes)
     }
 
     pub fn resize_pane(&self, pane_id: &str, generation: u32, cols: u16, rows: u16) -> Result<()> {
-        let map = self.processes.lock();
-        let proc = map
-            .get(pane_id)
-            .ok_or_else(|| DesktopError::StaleGeneration)?;
+        let proc = {
+            let map = self.processes.lock();
+            let proc = map
+                .get(pane_id)
+                .ok_or_else(|| DesktopError::StaleGeneration)?;
 
-        if proc.generation != generation {
-            return Err(DesktopError::StaleGeneration);
-        }
+            if proc.generation != generation {
+                return Err(DesktopError::StaleGeneration);
+            }
+            proc.clone()
+        };
 
         proc.resize(cols, rows)
     }
@@ -111,9 +144,8 @@ impl PtyManager {
         Ok(())
     }
 
-
     pub fn close_all(&self) {
-        let procs: Vec<PtyProcess> = {
+        let procs: Vec<Arc<PtyProcess>> = {
             let mut map = self.processes.lock();
             map.drain().map(|(_, p)| p).collect()
         };

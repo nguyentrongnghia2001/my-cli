@@ -3,6 +3,7 @@ import { ref, nextTick } from "vue";
 import { useWorkspace } from "../composables/useWorkspace";
 import type { PaneMetadata } from "../types/desktop";
 import ConfirmModal from "./ConfirmModal.vue";
+import AgentStatusBadge from "./AgentStatusBadge.vue";
 
 const props = defineProps<{
   pane: PaneMetadata;
@@ -98,9 +99,12 @@ function cancelClose() {
       />
 
       <span class="pane-gen">#{{ pane.generation }}</span>
-      <span v-if="pane.status !== 'running'" class="status-label" :class="pane.status">
-        {{ pane.status }}
-      </span>
+      <AgentStatusBadge
+        :kind="pane.detectedKind || pane.launch.kind"
+        :status="pane.status"
+        :activity="pane.activity"
+        :title="pane.title"
+      />
     </div>
 
 

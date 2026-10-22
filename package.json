@@ -7,6 +7,7 @@
     "dev": "npm --prefix desktop run dev",
     "build": "npm --prefix desktop run build",
     "typecheck": "npm --prefix desktop run typecheck",
+    "test": "npm --prefix desktop run test",
     "tauri": "npm --prefix desktop run tauri",
     "tauri:dev": "npm --prefix desktop run tauri dev",
     "tauri:build": "npm --prefix desktop run tauri build"
